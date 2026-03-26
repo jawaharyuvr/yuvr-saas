@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -27,6 +28,15 @@ export default function LoginPage() {
       clearLocalSession();
     };
     clearSession();
+
+    // Check for messages in URL (e.g. from inactivity timeout)
+    const searchParams = new URLSearchParams(window.location.search);
+    const msg = searchParams.get('message');
+    if (msg) {
+      setMessage(msg);
+      // Clean up URL
+      window.history.replaceState({}, '', '/login');
+    }
 
     // Prevent back navigation to dashboard/previous authenticated state
     window.history.pushState(null, '', window.location.href);
@@ -45,18 +55,15 @@ export default function LoginPage() {
 
     // Resolve username to email if it's not an email address
     if (!identifier.includes('@')) {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('username', identifier.toLowerCase())
-        .single();
+      const { data: resolvedEmail, error: resolveError } = await supabase
+        .rpc('get_email_by_username', { p_username: identifier.toLowerCase() });
       
-      if (profileError || !profileData) {
+      if (resolveError || !resolvedEmail) {
         setError('Invalid username or email');
         setLoading(false);
         return;
       }
-      loginEmail = profileData.email;
+      loginEmail = resolvedEmail;
     }
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -65,7 +72,11 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError(error.message);
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        setError('Please verify your email address to log in. Check your inbox for the confirmation link.');
+      } else {
+        setError(error.message);
+      }
       setLoading(false);
     } else {
       router.replace('/dashboard');
@@ -122,8 +133,13 @@ export default function LoginPage() {
                   icon={<Lock size={18} />}
                 />
               </div>
+              {message && (
+                <p className="text-sm font-medium text-indigo-600 bg-indigo-50 p-3 rounded-lg border border-indigo-100">
+                  {message}
+                </p>
+              )}
               {error && (
-                <p className="text-sm font-medium text-rose-500 bg-rose-50 p-3 rounded-lg">
+                <p className="text-sm font-medium text-rose-500 bg-rose-50 p-3 rounded-lg border border-rose-100">
                   {error}
                 </p>
               )}
