@@ -47,21 +47,27 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
 
-    // 1. Check if username is unique
-    const { data: existingUser, error: checkError } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('username', username.toLowerCase())
-      .maybeSingle();
+    // 1. Check if username or email already exists using an RPC bypass for RLS
+    const { data: existsData, error: checkError } = await supabase
+      .rpc('check_user_exists', { 
+        p_username: username.toLowerCase(), 
+        p_email: email.toLowerCase() 
+      });
 
     if (checkError) {
-      console.error('Username check error:', checkError);
-      setError('Error checking username availability. Please try again.');
+      console.error('Validation check error:', checkError);
+      setError('Error validating user details. Please try again.');
       setLoading(false);
       return;
     }
 
-    if (existingUser) {
+    if (existsData?.emailExists) {
+      setError('This email is already registered. Please sign in instead.');
+      setLoading(false);
+      return;
+    }
+
+    if (existsData?.usernameExists) {
       setError('This username is already taken. Please choose another one.');
       setLoading(false);
       return;
@@ -74,6 +80,8 @@ export default function SignupPage() {
       options: {
         data: {
           username: username.toLowerCase(),
+          full_name: fullName,
+          company_name: '',
         }
       }
     });
@@ -81,29 +89,8 @@ export default function SignupPage() {
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else if (data.user) {
-      // Create profile with username
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email,
-          username: username.toLowerCase(),
-          full_name: fullName, // Use fullName from state
-          company_name: '',
-        });
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        setError('Failed to create user profile. Please try again.'); // Inform user about profile error
-        setLoading(false);
-        return;
-      }
-      setSuccess(true); // Set success after profile creation
-      setLoading(false);
-      // router.replace('/dashboard'); // Removed, as success state handles the next step (email check)
     } else {
-      // This case might happen if signup is successful but data.user is null (e.g., email confirmation needed)
+      // The database trigger 'on_auth_user_created' automatically handles profile insertion.
       setSuccess(true);
       setLoading(false);
     }

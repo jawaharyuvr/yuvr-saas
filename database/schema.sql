@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   full_name TEXT,
+  username TEXT UNIQUE,
   email TEXT UNIQUE,
   company_name TEXT,
   logo_url TEXT,
@@ -124,3 +125,54 @@ FOR ALL USING (
     AND public.estimates.user_id = auth.uid()
   )
 );
+
+-- Trigger to automatically create profile on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, username, full_name, company_name)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    NEW.raw_user_meta_data->>'username',
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.raw_user_meta_data->>'company_name'
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- RPC to safely check for existing users during signup (bypasses RLS)
+CREATE OR REPLACE FUNCTION public.check_user_exists(p_username TEXT, p_email TEXT)
+RETURNS JSONB AS $$
+DECLARE
+  username_exists BOOLEAN;
+  email_exists BOOLEAN;
+BEGIN
+  SELECT EXISTS(SELECT 1 FROM public.profiles WHERE username = p_username) INTO username_exists;
+  
+  -- Since Supabase auth.users isn't directly readable, we check profiles which is kept in sync via trigger
+  SELECT EXISTS(SELECT 1 FROM public.profiles WHERE email = p_email) INTO email_exists;
+  
+  RETURN jsonb_build_object(
+    'usernameExists', username_exists,
+    'emailExists', email_exists
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- RPC to resolve username to email for login (bypasses RLS)
+CREATE OR REPLACE FUNCTION public.get_email_by_username(p_username TEXT)
+RETURNS TEXT AS $$
+DECLARE
+  v_email TEXT;
+BEGIN
+  SELECT email INTO v_email FROM public.profiles WHERE username = p_username LIMIT 1;
+  RETURN v_email;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

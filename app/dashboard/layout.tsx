@@ -1,6 +1,7 @@
 import { Sidebar } from '../../components/Sidebar';
 import { SessionGuard } from '../../components/SessionGuard';
 import { DynamicBackground } from '@/components/ui/DynamicBackground';
+import { InactivityTimeout } from '../../components/InactivityTimeout';
 
 export default function DashboardLayout({
   children,
@@ -9,6 +10,7 @@ export default function DashboardLayout({
 }) {
   return (
     <SessionGuard>
+      <InactivityTimeout />
       <div className="flex h-screen bg-transparent relative overflow-hidden">
         <DynamicBackground />
         <Sidebar />

@@ -63,6 +63,8 @@ export default function DashboardPage() {
     brand_color?: string;
     custom_font?: string;
     invoice_template?: string;
+    username?: string;
+    full_name?: string;
   } | null>(null);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailTo, setEmailTo] = useState('');
@@ -86,7 +88,7 @@ export default function DashboardPage() {
       // Fetch Profile for Logo/Branding
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('logo_url, company_name, brand_color, custom_font, invoice_template')
+        .select('logo_url, company_name, brand_color, custom_font, invoice_template, username, full_name')
         .eq('id', user.id)
         .single();
       
@@ -293,7 +295,9 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 text-sm">Welcome back! Here's what's happening today.</p>
+          <p className="text-slate-500 text-sm">
+            Welcome back{userProfile?.username ? `, ${userProfile.username}` : ''}
+          </p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
