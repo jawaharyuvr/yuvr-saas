@@ -20,7 +20,6 @@ export default function SignupPage() {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -91,33 +90,9 @@ export default function SignupPage() {
       setLoading(false);
     } else {
       // The database trigger 'on_auth_user_created' automatically handles profile insertion.
-      setSuccess(true);
-      setLoading(false);
+      router.push('/login?message=Account created successfully. Please log in.');
     }
   };
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-transparent relative p-4">
-        <DynamicBackground />
-        <Card className="w-full max-w-md text-center p-8">
-          <div className="mx-auto w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900">Check your email</h2>
-          <p className="text-slate-500 mt-2">
-            We've sent a confirmation link to <strong>{email}</strong>. 
-            Please check your inbox to activate your account.
-          </p>
-          <Link href="/login" className="mt-8 inline-block">
-            <Button variant="outline">Back to Login</Button>
-          </Link>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-transparent relative p-6 overflow-hidden">
