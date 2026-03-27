@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { formatCurrency, cn } from '@/utils/format';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -74,6 +75,10 @@ export default function DashboardPage() {
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [selectedEmailInvoice, setSelectedEmailInvoice] = useState<any>(null);
+  const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [isSavingUsername, setIsSavingUsername] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -96,6 +101,9 @@ export default function DashboardPage() {
       
       if (profile) {
         setUserProfile(profile);
+        if (!profile.username) {
+          setIsUsernameModalOpen(true);
+        }
       } else if (profileError) {
         console.warn('Profile fetch error (possibly non-existent):', profileError);
       }
@@ -280,6 +288,50 @@ export default function DashboardPage() {
       alert(error.message);
     } finally {
       setEmailSending(false);
+    }
+  };
+
+  const handleUpdateUsername = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUsername.trim()) return;
+    
+    setIsSavingUsername(true);
+    setUsernameError(null);
+
+    try {
+      // 1. Check if username is taken
+      const { data: existsData, error: checkError } = await supabase
+        .rpc('check_user_exists', { 
+          p_username: newUsername.toLowerCase(), 
+          p_email: '' // We only care about username here
+        });
+
+      if (checkError) throw new Error('Error validating username. Please try again.');
+      
+      if (existsData?.usernameExists) {
+        setUsernameError('This username is already taken. Please choose another one.');
+        setIsSavingUsername(false);
+        return;
+      }
+
+      // 2. Update profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User session not found.');
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ username: newUsername.toLowerCase() })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // 3. Success
+      setIsUsernameModalOpen(false);
+      setUserProfile(prev => prev ? { ...prev, username: newUsername.toLowerCase() } : null);
+    } catch (error: any) {
+      setUsernameError(error.message);
+    } finally {
+      setIsSavingUsername(false);
     }
   };
 
@@ -678,6 +730,47 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Mandatory Username Modal */}
+      <Modal
+        isOpen={isUsernameModalOpen}
+        onClose={() => {}} // Non-closable
+        title="Choose a Username"
+        maxWidth="sm"
+      >
+        <div className="space-y-5">
+          <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
+            <p className="text-sm text-indigo-700 leading-relaxed">
+              Welcome to Yuvr's! To get started, please choose a unique username for your account. This will be used to identify your business on the platform.
+            </p>
+          </div>
+          
+          <form onSubmit={handleUpdateUsername} className="space-y-4">
+            <Input
+              label="Username"
+              type="text"
+              placeholder="e.g. yuvr_designs"
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+              required
+              autoFocus
+            />
+            {usernameError && (
+              <p className="text-sm font-medium text-rose-500 bg-rose-50 p-3 rounded-lg border border-rose-100">
+                {usernameError}
+              </p>
+            )}
+            <Button 
+              type="submit" 
+              className="w-full" 
+              isLoading={isSavingUsername}
+              disabled={!newUsername.trim()}
+            >
+              Save and Continue
+            </Button>
+          </form>
+        </div>
       </Modal>
     </div>
   );
