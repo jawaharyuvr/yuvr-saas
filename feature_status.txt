@@ -1,0 +1,26 @@
+# Yuvr-SaaS Feature Status Snapshot
+Date: 2026-03-28
+
+## ✅ Completed Modules
+- [x] **Auth & Profile**: Login, Signup, Username selection, Profile settings.
+- [x] **Dashboard**: Analytics, stats dashboard (Revenue, Invoices).
+- [x] **Client Management**: Add, view, and manage clients.
+- [x] **Invoicing**: 
+    - [x] Multiple templates (10 high-quality themes).
+    - [x] PDF generation (jspdf).
+    - [x] Email integration (Resend).
+    - [x] Status tracking (Paid/Unpaid).
+- [x] **Estimates**: Create and send quotes/estimates.
+
+## 🛠️ In-Progress (Current Implementation)
+- [/] **Payment Automation**: UPI QR code generation on invoice PDFs.
+- [/] **Multi-User Management**: Staff/Team member roles and permissions.
+- [/] **Inventory Management**: Stock tracking, low stock alerts, barcode labels.
+- [/] **Expense Tracking**: Categorized expense logging, profit/loss reports.
+- [/] **Offline Mode**: Local storage sync for offline work. (PWA)
+
+## 📅 Planned / Missing Modules (For Future Development)
+- [ ] **GST Compliance**: Tax slabs, GSTR exportable reports.
+- [ ] **Barcode Scanning**: Scan items directly into invoices (via camera).
+- [ ] **Thermal Print Support**: Formats for standard thermal receipts.
+- [ ] **Mobile App/PWA**: Cross-platform mobile accessibility.

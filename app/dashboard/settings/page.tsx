@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { User, Bell, Shield, Palette, Save, Upload, Image as ImageIcon, LogOut } from 'lucide-react';
+import { User, Bell, Shield, Palette, Save, Upload, Image as ImageIcon, LogOut, CreditCard } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { clearLocalSession } from '@/lib/sessionManager';
@@ -24,7 +24,9 @@ export default function SettingsPage() {
     brand_color: '#6366f1',
     custom_font: 'Inter',
     invoice_template: 'modern',
-    api_key: ''
+    api_key: '',
+    upi_id: '',
+    qr_code_enabled: false
   });
   const [passwords, setPasswords] = useState({
     current: '',
@@ -59,7 +61,9 @@ export default function SettingsPage() {
           brand_color: data.brand_color || '#6366f1',
           custom_font: data.custom_font || 'Inter',
           invoice_template: data.invoice_template || 'modern',
-          api_key: data.api_key || ''
+          api_key: data.api_key || '',
+          upi_id: data.upi_id || '',
+          qr_code_enabled: data.qr_code_enabled || false
         });
       }
     }
@@ -83,7 +87,9 @@ export default function SettingsPage() {
           email: profile.email,
           brand_color: profile.brand_color,
           custom_font: profile.custom_font,
-          invoice_template: profile.invoice_template
+          invoice_template: profile.invoice_template,
+          upi_id: profile.upi_id,
+          qr_code_enabled: profile.qr_code_enabled
         });
 
       if (error) throw error;
@@ -184,6 +190,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'branding', label: 'Branding', icon: Palette },
+    { id: 'payment', label: 'Payment', icon: CreditCard },
     { id: 'api', label: 'API Access', icon: Shield },
     { id: 'security', label: 'Security', icon: Shield },
   ];
@@ -570,6 +577,49 @@ export default function SettingsPage() {
               </>
             )}
 
+            {activeTab === 'payment' && (
+              <div className="space-y-6">
+                <h2 className="text-lg font-bold text-slate-900 border-b pb-4">Payment Automation</h2>
+                <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-xl space-y-4">
+                  <div className="flex items-start gap-4 text-indigo-900">
+                    <CreditCard size={24} className="shrink-0" />
+                    <div className="space-y-1">
+                      <p className="font-semibold">UPI Payment Integration</p>
+                      <p className="text-sm text-indigo-700 opacity-80">Enable instant payments by adding your UPI ID. A dynamic QR code will be generated on your invoices.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-center gap-3">
+                       <input 
+                         type="checkbox" 
+                         id="qr_enabled"
+                         checked={profile.qr_code_enabled}
+                         onChange={(e) => setProfile({ ...profile, qr_code_enabled: e.target.checked })}
+                         className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+                       />
+                       <label htmlFor="qr_enabled" className="text-sm font-semibold text-slate-700 cursor-pointer">Enable QR Code on Invoices</label>
+                    </div>
+
+                    <Input 
+                      label="UPI ID" 
+                      placeholder="username@bank (e.g., example@okicici)" 
+                      value={profile.upi_id}
+                      onChange={(e) => setProfile({ ...profile, upi_id: e.target.value })}
+                      disabled={!profile.qr_code_enabled}
+                    />
+                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Supported Apps: GPay, PhonePe, Paytm, BHIM</p>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end">
+                  <Button onClick={handleSaveProfile} isLoading={loading}>
+                    <Save size={18} className="mr-2" /> Save Payment Settings
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {activeTab === 'api' && (
               <div className="space-y-6">
                 <h2 className="text-lg font-bold text-slate-900 border-b pb-4">API Access</h2>
@@ -619,7 +669,7 @@ export default function SettingsPage() {
                     <p className="text-sm text-slate-500">Retrieve a list of your clients to get the required <code className="bg-slate-100 px-1 py-0.5 rounded text-xs text-slate-700">client_id</code>.</p>
                     <div className="bg-slate-900 rounded-lg p-4 relative group">
                       <pre className="font-mono text-xs text-slate-300 overflow-x-auto">
-{`curl -X GET ${window.location.origin}/api/v1/clients \\
+{`curl -X GET ${window?.location?.origin || ''}/api/v1/clients \\
   -H "Authorization: Bearer YOUR_API_KEY"`}</pre>
                       <button 
                         onClick={() => navigator.clipboard.writeText(`curl -X GET ${window.location.origin}/api/v1/clients \\\n  -H "Authorization: Bearer YOUR_API_KEY"`)}
@@ -633,7 +683,7 @@ export default function SettingsPage() {
                     <p className="text-sm text-slate-500">Generate a new invoice programmatically. Once created, it will immediately appear in your dashboard.</p>
                     <div className="bg-slate-900 rounded-lg p-4 relative group">
                       <pre className="font-mono text-xs text-slate-300 overflow-x-auto">
-{`curl -X POST ${window.location.origin}/api/v1/invoices \\
+{`curl -X POST ${window?.location?.origin || ''}/api/v1/invoices \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

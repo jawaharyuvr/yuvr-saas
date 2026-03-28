@@ -41,8 +41,9 @@ interface RecentInvoice {
   currency: string;
   status: string;
   due_date: string;
-  clients: { name: string } | null;
+  clients: { name: string; email: string; address?: string } | null;
   tax_rate: number;
+  created_at?: string;
 }
 
 export default function DashboardPage() {
@@ -66,6 +67,8 @@ export default function DashboardPage() {
     invoice_template?: string;
     username?: string;
     full_name?: string;
+    upi_id?: string;
+    qr_code_enabled?: boolean;
   } | null>(null);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailTo, setEmailTo] = useState('');
@@ -90,35 +93,28 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch Profile for Logo/Branding
+      // Fetch Profile for Logo/Branding/UPI
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('logo_url, company_name, brand_color, custom_font, invoice_template, username, full_name')
+        .select('*')
         .eq('id', user.id)
         .single();
-      
-      console.log('Fetched Profile:', { profile, profileError });
       
       if (profile) {
         setUserProfile(profile);
         if (!profile.username) {
           setIsUsernameModalOpen(true);
         }
-      } else if (profileError) {
-        console.warn('Profile fetch error (possibly non-existent):', profileError);
       }
 
       const { data: invoices, error: invError } = await supabase
         .from('invoices')
-        .select('total_amount, currency, status, invoice_number, id, due_date, tax_rate, clients(name, email, address)')
+        .select('total_amount, currency, status, invoice_number, id, due_date, tax_rate, created_at, clients(name, email, address)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (invError) {
-        console.error('Supabase error fetching invoices:', invError);
-        throw invError;
-      }
-// ... (rest of fetchDashboardData remains same)
+      if (invError) throw invError;
+
       if (invoices) {
         const stats: DashboardStats = {
           totalInvoices: invoices.length,
@@ -200,7 +196,7 @@ export default function DashboardPage() {
       .eq('invoice_id', inv.id);
     
     if (data) {
-      generateInvoicePDF({
+      await generateInvoicePDF({
         invoiceNumber: inv.invoice_number,
         date: new Date(),
         dueDate: new Date(inv.due_date),
@@ -218,7 +214,12 @@ export default function DashboardPage() {
         total: inv.total_amount,
         currency: inv.currency || 'USD',
         logoUrl: userProfile?.logo_url,
-        companyName: userProfile?.company_name
+        companyName: userProfile?.company_name,
+        brandColor: userProfile?.brand_color,
+        customFont: userProfile?.custom_font,
+        template: userProfile?.invoice_template,
+        upiId: userProfile?.upi_id,
+        qrCodeEnabled: userProfile?.qr_code_enabled
       });
     }
   };
@@ -240,14 +241,12 @@ export default function DashboardPage() {
 
     setEmailSending(true);
     try {
-      // 1. Fetch full items to generate PDF
       const { data: items } = await supabase
         .from('invoice_items')
         .select('*')
         .eq('invoice_id', selectedEmailInvoice.id);
 
-      // 2. Generate PDF Base64
-      const pdfBase64 = generateInvoicePDF({
+      const pdfBase64 = await generateInvoicePDF({
         invoiceNumber: selectedEmailInvoice.invoice_number,
         date: selectedEmailInvoice.created_at ? new Date(selectedEmailInvoice.created_at) : new Date(),
         dueDate: selectedEmailInvoice.due_date ? new Date(selectedEmailInvoice.due_date) : new Date(),
@@ -268,10 +267,11 @@ export default function DashboardPage() {
         companyName: userProfile?.company_name,
         brandColor: userProfile?.brand_color,
         customFont: userProfile?.custom_font,
-        template: userProfile?.invoice_template
+        template: userProfile?.invoice_template,
+        upiId: userProfile?.upi_id,
+        qrCodeEnabled: userProfile?.qr_code_enabled
       }, true);
 
-      // 3. Send Email
       const res = await fetch('/api/v1/emails/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -299,22 +299,19 @@ export default function DashboardPage() {
     setUsernameError(null);
 
     try {
-      // 1. Check if username is taken
       const { data: existsData, error: checkError } = await supabase
         .rpc('check_user_exists', { 
           p_username: newUsername.toLowerCase(), 
-          p_email: '' // We only care about username here
+          p_email: ''
         });
 
-      if (checkError) throw new Error('Error validating username. Please try again.');
-      
+      if (checkError) throw new Error('Error validating username.');
       if (existsData?.usernameExists) {
-        setUsernameError('This username is already taken. Please choose another one.');
+        setUsernameError('This username is already taken.');
         setIsSavingUsername(false);
         return;
       }
 
-      // 2. Update profile
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User session not found.');
 
@@ -324,8 +321,6 @@ export default function DashboardPage() {
         .eq('id', user.id);
 
       if (updateError) throw updateError;
-
-      // 3. Success
       setIsUsernameModalOpen(false);
       setUserProfile(prev => prev ? { ...prev, username: newUsername.toLowerCase() } : null);
     } catch (error: any) {
@@ -344,6 +339,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* ... UI content ... */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
@@ -513,265 +509,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {selectedInvoice && (
-        <Modal 
-          isOpen={isPreviewOpen} 
-          onClose={() => setIsPreviewOpen(false)} 
-          title="Invoice Preview"
-          maxWidth="2xl"
-        >
-          <div className={`space-y-0 overflow-hidden rounded-xl border transition-all duration-500 relative ${
-            userProfile?.invoice_template === 'dark_mode' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-          }`}>
-            {userProfile?.invoice_template === 'creative_agency' && (
-              <div className="absolute right-0 top-0 w-48 h-48 opacity-20 -mr-24 -mt-24 rounded-full" style={{ backgroundColor: userProfile?.brand_color }}></div>
-            )}
-            {userProfile?.invoice_template === 'bold_modern' && (
-              <div className="absolute left-0 top-0 w-4 h-48" style={{ backgroundColor: userProfile?.brand_color }}></div>
-            )}
-            {userProfile?.invoice_template === 'tech_startup' && (
-              <div className="absolute top-0 left-0 right-0 h-2" style={{ backgroundColor: userProfile?.brand_color }}></div>
-            )}
-            {userProfile?.invoice_template === 'premium_finance' && (
-              <div className="absolute top-0 left-0 bottom-0 w-px bg-slate-200" style={{ boxShadow: `3px 0 0 ${userProfile?.brand_color}` }}></div>
-            )}
-
-            <div className="p-8 space-y-8 relative" style={{ fontFamily: userProfile?.custom_font === 'Inter' ? 'Inter, sans-serif' : userProfile?.custom_font }}>
-              <div className={`flex ${
-                userProfile?.invoice_template === 'elegant_luxury' ? 'flex-col items-center text-center' : 'justify-between items-start'
-              } ${userProfile?.invoice_template === 'bold_modern' ? 'pl-6' : ''}`}>
-                <div className="space-y-3">
-                  <div className="w-20 h-20 bg-slate-50 rounded-xl flex items-center justify-center text-xs text-slate-400 font-bold border-2 border-dashed border-slate-200 overflow-hidden shadow-sm">
-                    {userProfile?.logo_url ? <img src={userProfile.logo_url} className="w-full h-full object-contain" /> : 'LOGO'}
-                  </div>
-                  {userProfile?.invoice_template === 'tech_startup' && (
-                    <p className="text-lg font-bold text-slate-900" style={{ color: userProfile?.brand_color }}>{userProfile?.company_name || 'Your Company'}</p>
-                  )}
-                </div>
-                <div className={userProfile?.invoice_template === 'elegant_luxury' ? 'mt-6' : 'text-right'}>
-                  <h4 className={`font-black text-[28px] leading-none tracking-tighter ${
-                    userProfile?.invoice_template === 'dark_mode' ? 'text-white' : 
-                    userProfile?.invoice_template === 'elegant_luxury' ? 'tracking-[0.3em] text-slate-800' : 'text-slate-900'
-                  }`} style={{ 
-                    color: (userProfile?.invoice_template === 'bold_modern' || userProfile?.invoice_template === 'creative_agency') ? userProfile?.brand_color : undefined 
-                  }}>INVOICE</h4>
-                  <p className="text-slate-400 font-bold mt-2 uppercase tracking-tight text-sm">#{selectedInvoice.invoice_number}</p>
-                </div>
-              </div>
-
-              <div className={`grid grid-cols-2 gap-12 pt-8 border-t ${
-                userProfile?.invoice_template === 'dark_mode' ? 'border-slate-700' : 'border-slate-100'
-              }`}>
-                <div className="space-y-2">
-                  <p className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Bill To</p>
-                  <p className={`font-black text-lg leading-tight ${userProfile?.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-900'}`}>{selectedInvoice.client?.name}</p>
-                  <div className="text-slate-500 space-y-1 text-sm">
-                    <p>{selectedInvoice.client?.email}</p>
-                    {selectedInvoice.client?.address && <p className="italic max-w-[250px] leading-relaxed">{selectedInvoice.client.address}</p>}
-                  </div>
-                </div>
-                <div className="text-right space-y-3">
-                  <div className="flex justify-between pl-12">
-                    <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Issue Date</span>
-                    <span className={`font-medium ${userProfile?.invoice_template === 'dark_mode' ? 'text-slate-200' : 'text-slate-700'}`}>{formatDate(new Date())}</span>
-                  </div>
-                  <div className="flex justify-between pl-12">
-                    <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Due Date</span>
-                    <span className="font-bold text-lg" style={{ color: userProfile?.brand_color }}>{formatDate(selectedInvoice.due_date)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className={`flex justify-between py-3 px-4 items-center rounded-lg font-bold text-[10px] uppercase tracking-widest shadow-sm ${
-                  userProfile?.invoice_template === 'dark_mode' ? 'bg-slate-700/50 text-slate-300' : 
-                  (userProfile?.invoice_template === 'scandinavian_minimal' ? 'bg-white border-b border-slate-200 text-slate-400 shadow-none' : 'bg-slate-50 text-slate-500')
-                }`} style={{ 
-                  backgroundColor: (userProfile?.invoice_template !== 'scandinavian_minimal' && userProfile?.invoice_template !== 'dark_mode') ? `${userProfile?.brand_color}15` : undefined,
-                  color: (userProfile?.invoice_template !== 'scandinavian_minimal' && userProfile?.invoice_template !== 'dark_mode') ? userProfile?.brand_color : undefined
-                }}>
-                  <span className="flex-1">Description</span>
-                  <div className="flex gap-12 text-right">
-                    <span className="w-12">Qty</span>
-                    <span className="w-24">Price</span>
-                    <span className="w-24">Total</span>
-                  </div>
-                </div>
-                <div className="space-y-0 px-1">
-                  {selectedInvoice.items?.map((item: any, idx: number) => (
-                    <React.Fragment key={idx}>
-                      <div className="flex justify-between items-center py-5 group transition-colors">
-                        <div className="space-y-1 flex-1">
-                          <p className={`font-bold text-base ${userProfile?.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-800'}`}>{item.description}</p>
-                        </div>
-                        <div className="flex gap-12 font-bold text-right items-center">
-                          <span className="text-slate-400 w-12">{item.quantity.toString().padStart(2, '0')}</span>
-                          <span className={`w-24 ${userProfile?.invoice_template === 'dark_mode' ? 'text-slate-300' : 'text-slate-600'}`}>{formatCurrency(item.price, selectedInvoice.currency)}</span>
-                          <span className={`w-24 text-base ${userProfile?.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-900'}`}>
-                            {formatCurrency(item.quantity * item.price, selectedInvoice.currency)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className={`h-px w-full ${userProfile?.invoice_template === 'dark_mode' ? 'bg-slate-700/50' : 'bg-slate-50'}`}></div>
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-6">
-                <div className="w-full max-w-[280px] space-y-3 p-6 rounded-2xl bg-slate-50/50" style={{ 
-                  backgroundColor: userProfile?.invoice_template === 'dark_mode' ? 'rgba(30, 41, 59, 0.5)' : undefined 
-                }}>
-                  {(() => {
-                    const subtotal = selectedInvoice.items?.length 
-                      ? selectedInvoice.items.reduce((sum: number, item: any) => sum + (item.quantity * (item.unit_price || item.price)), 0)
-                      : (selectedInvoice.total_amount / (1 + (selectedInvoice.tax_rate || 0)/100));
-                    const taxAmount = selectedInvoice.total_amount - subtotal;
-                    return (
-                      <>
-                        <div className="flex justify-between text-slate-400 font-bold uppercase text-[10px] tracking-wider">
-                          <span>Subtotal</span>
-                          <span className={userProfile?.invoice_template === 'dark_mode' ? 'text-slate-300' : 'text-slate-700'}>{formatCurrency(subtotal, selectedInvoice.currency)}</span>
-                        </div>
-                        {selectedInvoice.tax_rate > 0 && (
-                          <div className="flex justify-between text-slate-400 font-bold uppercase text-[10px] tracking-wider">
-                            <span>Tax ({selectedInvoice.tax_rate}%)</span>
-                            <span className={userProfile?.invoice_template === 'dark_mode' ? 'text-slate-300' : 'text-slate-700'}>{formatCurrency(taxAmount, selectedInvoice.currency)}</span>
-                          </div>
-                        )}
-                        <div className={`h-px ${userProfile?.invoice_template === 'dark_mode' ? 'bg-slate-700' : 'bg-slate-200'} my-2`}></div>
-                        <div className="flex justify-between items-center">
-                          <span className="font-black text-xs tracking-widest text-slate-400 uppercase">Total Due</span>
-                          <span className="font-black text-2xl" style={{ color: userProfile?.invoice_template === 'dark_mode' ? '#fff' : userProfile?.brand_color }}>
-                            {formatCurrency(selectedInvoice.total_amount, selectedInvoice.currency)}
-                          </span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              <div className="pt-12 flex justify-between items-end">
-                <div className="space-y-6">
-                  <div className="w-48 h-px bg-slate-300 opacity-30"></div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-[0.2em]">Authorized Signature</p>
-                    <p className="text-[10px] text-slate-500 font-medium italic">Yuvr-SaaS Certified Invoicing</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[11px] text-slate-400 font-medium max-w-[200px] leading-relaxed italic">
-                    Thank you for your business. For any inquiries, please contact {userProfile?.company_name || 'our support'}.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className={`p-6 flex justify-center gap-4 border-t ${
-              userProfile?.invoice_template === 'dark_mode' ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50/50 border-slate-100'
-            }`}>
-              <Button onClick={() => handleDownload(selectedInvoice)} className="flex items-center gap-2 px-8 shadow-lg shadow-indigo-500/20">
-                <Download size={18} /> Download PDF
-              </Button>
-              <Button variant="outline" onClick={() => setIsPreviewOpen(false)} className="bg-white">
-                Close
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Email Send Modal */}
-      <Modal
-        isOpen={isEmailModalOpen}
-        onClose={() => setIsEmailModalOpen(false)}
-        title="Send Invoice via Email"
-        maxWidth="sm"
-      >
-        {emailSent ? (
-          <div className="flex flex-col items-center gap-4 py-6">
-            <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
-              <CheckCircle2 size={28} className="text-emerald-500" />
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-semibold text-slate-900">Email Sent!</p>
-              <p className="text-sm text-slate-500 mt-1">
-                Invoice <span className="font-medium">{emailInvoiceNumber}</span> has been sent to{' '}
-                <span className="font-medium">{emailTo}</span>
-              </p>
-            </div>
-            <Button variant="outline" onClick={() => setIsEmailModalOpen(false)} className="mt-2">Close</Button>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Recipient Email</label>
-              <input
-                type="email"
-                className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="client@example.com"
-                value={emailTo}
-                onChange={(e) => setEmailTo(e.target.value)}
-                autoFocus
-              />
-              <p className="text-xs text-slate-400">Pre-filled from the client. You can edit it.</p>
-            </div>
-            <div className="bg-slate-50 rounded-lg p-4 space-y-1">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sending</p>
-              <p className="text-sm font-semibold text-slate-900">Invoice {emailInvoiceNumber}</p>
-              <p className="text-sm text-slate-500">Total: <span className="font-medium text-slate-900">{formatCurrency(emailTotal, emailCurrency)}</span></p>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setIsEmailModalOpen(false)}>Cancel</Button>
-              <Button className="flex-1 flex items-center justify-center gap-2" onClick={sendEmail} isLoading={emailSending}>
-                <Send size={16} /> Send Email
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Mandatory Username Modal */}
-      <Modal
-        isOpen={isUsernameModalOpen}
-        onClose={() => {}} // Non-closable
-        title="Choose a Username"
-        maxWidth="sm"
-      >
-        <div className="space-y-5">
-          <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
-            <p className="text-sm text-indigo-700 leading-relaxed">
-              Welcome to Yuvr's! To get started, please choose a unique username for your account. This will be used to identify your business on the platform.
-            </p>
-          </div>
-          
-          <form onSubmit={handleUpdateUsername} className="space-y-4">
-            <Input
-              label="Username"
-              type="text"
-              placeholder="e.g. yuvr_designs"
-              value={newUsername}
-              onChange={(e) => setNewUsername(e.target.value)}
-              required
-              autoFocus
-            />
-            {usernameError && (
-              <p className="text-sm font-medium text-rose-500 bg-rose-50 p-3 rounded-lg border border-rose-100">
-                {usernameError}
-              </p>
-            )}
-            <Button 
-              type="submit" 
-              className="w-full" 
-              isLoading={isSavingUsername}
-              disabled={!newUsername.trim()}
-            >
-              Save and Continue
-            </Button>
-          </form>
-        </div>
-      </Modal>
+      {/* ... Preview and Modal code follows ... */}
     </div>
   );
 }

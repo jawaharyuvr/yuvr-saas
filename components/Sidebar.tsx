@@ -10,20 +10,23 @@ import {
   Settings,
   LogOut,
   PlusCircle,
-  CreditCard
+  CreditCard,
+  Package,
+  TrendingDown,
+  UserCheck
 } from 'lucide-react';
 import { cn } from '@/utils/format';
 import { supabase } from '@/lib/supabase';
 import { trackSession, clearLocalSession, removeSessionFromDb } from '@/lib/sessionManager';
 
-
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Clients', href: '/dashboard/clients', icon: Users },
   { name: 'Invoices', href: '/dashboard/invoices', icon: FileText },
-  { name: 'Estimates', href: '/dashboard/estimates', icon: FileText },
+  { name: 'Inventory', href: '/dashboard/inventory', icon: Package },
+  { name: 'Expenses', href: '/dashboard/expenses', icon: TrendingDown },
+  { name: 'Staff', href: '/dashboard/settings/staff', icon: UserCheck },
   { name: 'Analytics', href: '/dashboard/analytics', icon: LayoutDashboard },
-  { name: 'Pricing', href: '/dashboard/pricing', icon: CreditCard },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
@@ -32,24 +35,18 @@ export function Sidebar() {
   const router = useRouter();
 
   const handleSignOut = async () => {
-    console.log('Sign-out button clicked');
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        console.log('Clearing DB session for user:', user.id);
         await removeSessionFromDb(user.id);
       }
       
       const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Sign-out error:', error);
-        throw error;
-      }
-      console.log('Sign-out successful, clearing local session');
+      if (error) throw error;
+      
       clearLocalSession();
       router.replace('/login');
     } catch (error: any) {
-      console.error('Sign-out catch:', error);
       alert(error.message);
     }
   };

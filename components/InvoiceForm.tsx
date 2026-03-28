@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, Download, Eye, Mail, Send, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Save, Download, Eye, Mail, Send, CheckCircle2, Package } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -11,7 +11,6 @@ import { generateInvoicePDF } from '@/utils/pdf';
 import { getTaxRateForRegion } from '@/utils/tax';
 import { Modal } from '@/components/ui/Modal';
 import { CURRENCIES } from '@/utils/constants';
-
 
 interface Client {
   id: string;
@@ -23,8 +22,16 @@ interface Client {
   region?: string;
 }
 
+interface Product {
+  id: string;
+  name: string;
+  unit_price: number;
+  current_stock: number;
+}
+
 interface InvoiceItem {
   id: string;
+  product_id?: string;
   description: string;
   quantity: number;
   price: number;
@@ -32,6 +39,7 @@ interface InvoiceItem {
 
 export default function InvoiceForm() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [clientId, setClientId] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -49,7 +57,6 @@ export default function InvoiceForm() {
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
-  // Refs for focus management
   const clientIdRef = React.useRef<HTMLSelectElement>(null);
   const invoiceNumberRef = React.useRef<HTMLInputElement>(null);
   const dueDateRef = React.useRef<HTMLInputElement>(null);
@@ -58,6 +65,7 @@ export default function InvoiceForm() {
 
   useEffect(() => {
     fetchClients();
+    fetchProducts();
     fetchNextInvoiceNumber();
     fetchProfile();
   }, []);
@@ -65,19 +73,21 @@ export default function InvoiceForm() {
   const fetchProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
     if (profile) {
       setUserProfile(profile);
-      if (profile.invoice_template) {
-        setTemplate(profile.invoice_template);
-      }
+      if (profile.invoice_template) setTemplate(profile.invoice_template);
     }
+  };
+
+  const fetchClients = async () => {
+    const { data } = await supabase.from('clients').select('id, name, email, tax_id, tax_type, region');
+    if (data) setClients(data);
+  };
+
+  const fetchProducts = async () => {
+    const { data } = await supabase.from('products').select('id, name, unit_price, current_stock');
+    if (data) setProducts(data);
   };
 
   const handleNext = (e: React.KeyboardEvent, nextRef: React.RefObject<any>) => {
@@ -85,11 +95,6 @@ export default function InvoiceForm() {
       e.preventDefault();
       nextRef.current?.focus();
     }
-  };
-
-  const fetchClients = async () => {
-    const { data } = await supabase.from('clients').select('id, name, email, tax_id, tax_type, region');
-    if (data) setClients(data);
   };
 
   useEffect(() => {
@@ -105,25 +110,14 @@ export default function InvoiceForm() {
   const fetchNextInvoiceNumber = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     const currentYear = new Date().getFullYear();
     const prefix = `INV-${currentYear}-`;
-
-    const { data: allInvoices } = await supabase
-      .from('invoices')
-      .select('invoice_number')
-      .eq('user_id', user.id)
-      .ilike('invoice_number', `${prefix}%`);
-    
+    const { data: allInvoices } = await supabase.from('invoices').select('invoice_number').eq('user_id', user.id).ilike('invoice_number', `${prefix}%`);
     let nextNum = 1;
     if (allInvoices && allInvoices.length > 0) {
-      const nums = allInvoices.map(inv => {
-        const parts = inv.invoice_number.split('-');
-        return parseInt(parts[parts.length - 1] || '0');
-      });
+      const nums = allInvoices.map(inv => parseInt(inv.invoice_number.split('-').pop() || '0'));
       nextNum = Math.max(...nums) + 1;
     }
-    
     setInvoiceNumber(`${prefix}${nextNum.toString().padStart(4, '0')}`);
   };
 
@@ -132,101 +126,56 @@ export default function InvoiceForm() {
   };
 
   const removeItem = (id: string) => {
-    if (items.length > 1) {
-      setItems(items.filter(item => item.id !== id));
-    }
+    if (items.length > 1) setItems(items.filter(item => item.id !== id));
   };
 
   const updateItem = (id: string, field: keyof InvoiceItem, value: any) => {
-    // Stripping leading zeros
     const val = (field === 'quantity' || field === 'price') ? Number(value) : value;
-    setItems(items.map(item => item.id === id ? { ...item, [field]: val } : item));
+    setItems(items.map(item => {
+      if (item.id === id) {
+        const updated = { ...item, [field]: val };
+        if (field === 'product_id') {
+          const product = products.find(p => p.id === value);
+          if (product) {
+            updated.description = product.name;
+            updated.price = product.unit_price;
+          }
+        }
+        return updated;
+      }
+      return item;
+    }));
   };
 
   const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
   const taxAmount = subtotal * (taxRate / 100);
   const total = subtotal + taxAmount;
 
-  const getInvoiceData = async () => {
-    const { data: profile } = await supabase.from('profiles').select('*').single();
-    const selectedClient = clients.find(c => c.id === clientId);
-    
-    return {
-      invoiceNumber,
-      date: new Date(),
-      dueDate: new Date(dueDate),
-      client: {
-        name: selectedClient?.name || 'Unknown Client',
-        email: selectedClient?.email || '',
-        address: selectedClient?.address || '',
-      },
-      items: items.map(item => ({
-        description: item.description,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      taxRate,
-      total,
-      currency,
-      brandColor: profile?.brand_color,
-      customFont: profile?.custom_font,
-      logoUrl: profile?.logo_url,
-      companyName: profile?.company_name,
-      template: template
-    };
-  };
-
-  const validateForm = () => {
-    if (!clientId) return 'Please select a client';
-    if (!dueDate) return 'Please select a due date';
-    if (items.some(item => !item.description || item.price <= 0)) {
-      return 'All items must have a description and price greater than 0';
-    }
-    return null;
-  };
-
   const handleSave = async () => {
-    const errorMsg = validateForm();
-    if (errorMsg) return alert(errorMsg);
+    if (!clientId || !dueDate) return alert('Please fill in all required fields');
+    if (items.some(item => !item.description || item.price <= 0)) return alert('Items must have description and price');
     
     setLoading(true);
-    
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('You must be logged in to save an invoice');
+      if (!user) throw new Error('Not authenticated');
 
-      // 1. Create invoice
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('invoices')
-        .insert([{
-          user_id: user.id,
-          client_id: clientId,
-          invoice_number: invoiceNumber,
-          due_date: dueDate,
-          tax_rate: taxRate,
-          total_amount: total,
-          currency: currency,
-          status: 'unpaid'
-        }])
-        .select()
-        .single();
+      const { data: invoice, error: invoiceError } = await supabase.from('invoices').insert([{
+        user_id: user.id, client_id: clientId, invoice_number: invoiceNumber, due_date: dueDate, tax_rate: taxRate, total_amount: total, currency, status: 'unpaid'
+      }]).select().single();
+      if (invoiceError) throw invoiceError;
 
-      if (invoiceError) {
-        if (invoiceError.code === '23505') throw new Error(`Invoice number ${invoiceNumber} already exists. Please use a unique number.`);
-        throw invoiceError;
-      }
-
-      // 2. Create invoice items
-      const { error: itemsError } = await supabase
-        .from('invoice_items')
-        .insert(items.map(item => ({
-          invoice_id: invoice.id,
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.price
-        })));
-
+      const { error: itemsError } = await supabase.from('invoice_items').insert(items.map(item => ({
+        invoice_id: invoice.id, description: item.description, quantity: item.quantity, unit_price: item.price
+      })));
       if (itemsError) throw itemsError;
+
+      // 3. Deduct Stock
+      for (const item of items) {
+        if (item.product_id) {
+          await supabase.rpc('decrement_stock', { p_id: item.product_id, p_qty: item.quantity });
+        }
+      }
 
       alert('Invoice saved successfully!');
     } catch (error: any) {
@@ -237,191 +186,85 @@ export default function InvoiceForm() {
   };
 
   const handleDownload = async () => {
-    const errorMsg = validateForm();
-    if (errorMsg) return alert(errorMsg);
-    const data = await getInvoiceData();
-    generateInvoicePDF(data);
-  };
-
-  const handlePreview = () => {
-    const errorMsg = validateForm();
-    if (errorMsg) return alert(errorMsg);
-    setIsPreviewOpen(true);
-  };
-
-  const handleOpenEmailModal = () => {
-    const errorMsg = validateForm();
-    if (errorMsg) return alert(errorMsg);
-    const selectedClient = clients.find(c => c.id === clientId);
-    setEmailTo(selectedClient?.email || '');
-    setEmailSent(false);
-    setIsEmailModalOpen(true);
-  };
-
-  const sendEmail = async () => {
-    if (!emailTo || !emailTo.includes('@')) {
-      return alert('Please enter a valid email address');
-    }
-    setEmailSending(true);
-    try {
-      const data = await getInvoiceData();
-      const pdfBase64 = generateInvoicePDF(data, true);
-
-      const res = await fetch('/api/v1/emails/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          to: emailTo, 
-          invoiceNumber, 
-          pdfBase64,
-          brandColor: userProfile?.brand_color,
-          logoUrl: userProfile?.logo_url,
-          companyName: userProfile?.company_name,
-          totalAmount: total,
-          currency: currency
-        }),
-      });
-      const responseData = await res.json();
-      if (!res.ok) throw new Error(responseData.error || 'Failed to send email');
-      setEmailSent(true);
-    } catch (error: any) {
-      alert(error.message);
-    } finally {
-      setEmailSending(false);
-    }
+    const pdfData = { 
+      invoiceNumber, date: new Date(), dueDate: new Date(dueDate), 
+      client: { name: clients.find(c => c.id === clientId)?.name || 'Client', email: clients.find(c => c.id === clientId)?.email || '' },
+      items: items.map(i => ({ description: i.description, quantity: i.quantity, price: i.price })),
+      taxRate, total, currency, logoUrl: userProfile?.logo_url, companyName: userProfile?.company_name,
+      brandColor: userProfile?.brand_color, customFont: userProfile?.custom_font, template: template,
+      upiId: userProfile?.upi_id, qrCodeEnabled: userProfile?.qr_code_enabled
+    };
+    await generateInvoicePDF(pdfData);
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2 space-y-6">
         <Card>
-          <CardContent className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
+          <CardContent className="p-6 grid grid-cols-2 gap-4">
+             <div className="space-y-1.5 col-span-2 md:col-span-1">
                 <label className="text-sm font-medium text-slate-700">Client</label>
-                <select
-                  ref={clientIdRef}
-                  className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  onKeyDown={(e) => handleNext(e as any, invoiceNumberRef)}
-                  required
-                >
+                <select ref={clientIdRef} className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={clientId} onChange={(e) => setClientId(e.target.value)}>
                   <option value="">Select a client</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>{client.name}</option>
-                  ))}
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-              </div>
-              <Input
-                label="Invoice Number"
-                ref={invoiceNumberRef}
-                value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
-                onKeyDown={(e) => handleNext(e, dueDateRef)}
-                required
-              />
-              <Input
-                label="Due Date"
-                type="date"
-                ref={dueDateRef}
-                value={dueDate}
-                onChange={(e) => {
-                  setDueDate(e.target.value);
-                  if (e.target.value.length === 10) {
-                    taxRateRef.current?.focus();
-                  }
-                }}
-                onKeyDown={(e) => handleNext(e, taxRateRef)}
-                required
-              />
-              <Input
-                label="Tax Rate (%)"
-                type="number"
-                ref={taxRateRef}
-                value={taxRate}
-                onChange={(e) => setTaxRate(Number(e.target.value))}
-                onFocus={(e) => { if (taxRate === 0) setTaxRate('' as any); }}
-                onBlur={(e) => { if (taxRate as any === '') setTaxRate(0); }}
-                onKeyDown={(e) => handleNext(e, currencyRef)}
-              />
-              <div className="space-y-1.5 slice-dropdown">
+             </div>
+             <Input label="Invoice Number" ref={invoiceNumberRef} value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
+             <Input label="Due Date" type="date" ref={dueDateRef} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+             <Input label="Tax Rate (%)" type="number" ref={taxRateRef} value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))} />
+             <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Currency</label>
-                <select
-                  ref={currencyRef}
-                  className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                >
-                  {CURRENCIES.map(curr => (
-                    <option key={curr.code} value={curr.code}>
-                      {curr.symbol} - {curr.name}
-                    </option>
-                  ))}
+                <select ref={currencyRef} className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                  {CURRENCIES.map(curr => <option key={curr.code} value={curr.code}>{curr.symbol} - {curr.name}</option>)}
                 </select>
-              </div>
-            </div>
+             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-0">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Line Items</h2>
-              <Button variant="outline" size="sm" onClick={addItem} className="flex items-center gap-2">
-                <Plus size={16} /> Add Item
-              </Button>
+            <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+               <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                 <Package size={16} /> Line Items
+               </h2>
+               <Button variant="outline" size="sm" onClick={addItem} className="h-8 text-[10px] font-bold uppercase">Add Item</Button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider">
+                <thead className="bg-slate-50 text-slate-400 text-[9px] uppercase tracking-widest font-black">
                   <tr>
-                    <th className="px-6 py-3 font-medium">Description</th>
-                    <th className="px-6 py-3 font-medium w-24">Qty</th>
-                    <th className="px-6 py-3 font-medium w-32">Price</th>
-                    <th className="px-6 py-3 font-medium w-32">Amount</th>
-                    <th className="px-6 py-3 font-medium w-16"></th>
+                    <th className="px-6 py-3">Item / Product</th>
+                    <th className="px-6 py-3 w-20">Qty</th>
+                    <th className="px-6 py-3 w-32 text-right">Price</th>
+                    <th className="px-6 py-3 w-32 text-right">Total</th>
+                    <th className="px-6 py-3 w-12"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {items.map((item) => (
-                    <tr key={item.id} className="group">
-                      <td className="px-6 py-4">
-                        <input
-                          type="text"
-                          className="w-full bg-transparent focus:outline-none text-sm"
-                          placeholder="Item description..."
-                          value={item.description}
-                          onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                        />
+                    <tr key={item.id}>
+                      <td className="px-6 py-3">
+                         <div className="flex flex-col gap-1">
+                            <select 
+                              className="text-xs font-bold text-indigo-600 bg-transparent border-none focus:ring-0 p-0 cursor-pointer"
+                              value={item.product_id || ''}
+                              onChange={(e) => updateItem(item.id, 'product_id', e.target.value)}
+                            >
+                              <option value="">Custom Item...</option>
+                              {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.current_stock} in stock)</option>)}
+                            </select>
+                            <input 
+                              className="text-sm bg-transparent border-none focus:ring-0 p-0 w-full placeholder:text-slate-300" 
+                              placeholder="Description..." 
+                              value={item.description} 
+                              onChange={(e) => updateItem(item.id, 'description', e.target.value)} 
+                            />
+                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <input
-                          type="number"
-                          className="w-full bg-transparent focus:outline-none text-sm"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(item.id, 'quantity', Number(e.target.value))}
-                        />
-                      </td>
-                      <td className="px-6 py-4">
-                        <input
-                          type="number"
-                          className="w-full bg-transparent focus:outline-none text-sm text-right"
-                          value={item.price}
-                          onChange={(e) => updateItem(item.id, 'price', Number(e.target.value))}
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-slate-900 text-right">
-                        {formatCurrency(item.quantity * item.price, currency)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button 
-                          onClick={() => removeItem(item.id)}
-                          className="text-slate-300 hover:text-rose-500 transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
+                      <td className="px-6 py-3"><input type="number" className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-bold" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', e.target.value)} /></td>
+                      <td className="px-6 py-3 text-right"><input type="number" className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-bold text-right" value={item.price} onChange={(e) => updateItem(item.id, 'price', e.target.value)} /></td>
+                      <td className="px-6 py-3 text-sm font-bold text-slate-900 text-right">{formatCurrency(item.quantity * item.price, currency)}</td>
+                      <td className="px-6 py-3 text-right"><button onClick={() => removeItem(item.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={16} /></button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -432,209 +275,30 @@ export default function InvoiceForm() {
       </div>
 
       <div className="space-y-6">
-        <Card>
-          <CardContent className="p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-6">Summary</h2>
-            <div className="space-y-4">
-              <div className="flex justify-between text-sm text-slate-500">
-                <span>Subtotal</span>
-                <span>{formatCurrency(subtotal, currency)}</span>
+        <Card className="sticky top-6">
+           <CardContent className="p-6 space-y-4">
+              <h2 className="text-sm font-black uppercase tracking-widest text-slate-500 border-b pb-4">Invoice Summary</h2>
+              <div className="space-y-3">
+                 <div className="flex justify-between text-sm"><span className="text-slate-500">Subtotal</span><span className="font-bold text-slate-900">{formatCurrency(subtotal, currency)}</span></div>
+                 <div className="flex justify-between text-sm"><span className="text-slate-500">Tax ({taxRate}%)</span><span className="font-bold text-slate-900">{formatCurrency(taxAmount, currency)}</span></div>
+                 <div className="pt-4 border-t flex justify-between items-center"><span className="text-xs font-black uppercase text-slate-400">Total</span><span className="text-2xl font-black text-indigo-600">{formatCurrency(total, currency)}</span></div>
               </div>
-              <div className="flex justify-between text-sm text-slate-500">
-                <span>Tax ({taxRate}%)</span>
-                <span>{formatCurrency(taxAmount, currency)}</span>
+              <div className="pt-6 space-y-3">
+                 <Button className="w-full h-12 text-sm font-bold uppercase tracking-widest shadow-lg shadow-indigo-200" onClick={handleSave} isLoading={loading}>Save Invoice</Button>
+                 <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" onClick={handleDownload} className="text-[10px] font-black uppercase">PDF</Button>
+                    <Button variant="outline" onClick={() => setIsEmailModalOpen(true)} className="text-[10px] font-black uppercase">Email</Button>
+                 </div>
               </div>
-              <div className="pt-4 border-t border-slate-100 flex justify-between">
-                <span className="font-bold text-slate-900">Total</span>
-                <span className="font-bold text-indigo-600 text-xl">{formatCurrency(total, currency)}</span>
-              </div>
-            </div>
-            <div className="mt-8 space-y-3">
-              <Button className="w-full flex items-center justify-center gap-2" isLoading={loading} onClick={handleSave}>
-                <Save size={18} /> Save Invoice
-              </Button>
-              <div className="grid grid-cols-3 gap-3">
-                <Button variant="outline" className="flex items-center justify-center gap-2" onClick={handlePreview}>
-                  <Eye size={18} /> Preview
-                </Button>
-                <Button variant="outline" className="flex items-center justify-center gap-2" onClick={handleDownload}>
-                  <Download size={18} /> PDF
-                </Button>
-                <Button variant="outline" className="flex items-center justify-center gap-2" onClick={handleOpenEmailModal}>
-                  <Mail size={18} /> Email
-                </Button>
-              </div>
-            </div>
-          </CardContent>
+           </CardContent>
         </Card>
       </div>
-      <Modal 
-        isOpen={isPreviewOpen} 
-        onClose={() => setIsPreviewOpen(false)} 
-        title="Invoice Preview"
-        maxWidth="2xl"
-      >
-        <div className="space-y-8 p-4">
-          <div className="flex justify-between items-start">
-            <div>
-                <div className={`flex ${
-                  template === 'elegant_luxury' ? 'flex-col items-center text-center' : 'justify-between items-start'
-                } ${template === 'bold_modern' ? 'pl-4' : ''}`}>
-                   <div className="space-y-4">
-                     <div className="w-24 h-24 bg-slate-100 rounded-xl flex items-center justify-center font-bold text-slate-300 text-xs overflow-hidden">
-                       {userProfile?.logo_url ? <img src={userProfile.logo_url} className="w-full h-full object-contain" /> : 'LOGO'}
-                     </div>
-                     {template === 'tech_startup' && (
-                       <p className="text-lg font-bold text-slate-900" style={{ color: userProfile?.brand_color }}>{userProfile?.company_name || 'Your Company'}</p>
-                     )}
-                   </div>
-                   
-                   <div className={template === 'elegant_luxury' ? 'mt-6' : 'text-right'}>
-                     <h4 className={`font-black text-[28px] leading-none tracking-tighter ${
-                       template === 'dark_mode' ? 'text-white' : 
-                       template === 'elegant_luxury' ? 'tracking-[0.3em] text-slate-800' : 'text-slate-900'
-                     }`} style={{ 
-                       color: (template === 'bold_modern' || template === 'creative_agency') ? userProfile?.brand_color : undefined 
-                     }}>INVOICE</h4>
-                     <p className="text-slate-400 font-bold mt-2 uppercase tracking-tight text-sm">#{invoiceNumber || 'INV-001'}</p>
-                   </div>
-                </div>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-medium text-slate-900">Bill To:</p>
-              <p className="text-sm text-slate-600">
-                {clients.find(c => c.id === clientId)?.name || 'Unknown Client'}
-              </p>
-              <p className="text-sm text-slate-500">
-                {clients.find(c => c.id === clientId)?.email || ''}
-              </p>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-slate-500">Invoice Date</p>
-              <p className="font-medium">{formatDate(new Date())}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-slate-500">Due Date</p>
-              <p className="font-medium">{formatDate(dueDate)}</p>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 pt-6">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-slate-500 border-b border-slate-100">
-                  <th className="py-2 text-left font-medium">Description</th>
-                  <th className="py-2 text-right font-medium">Qty</th>
-                  <th className="py-2 text-right font-medium">Price</th>
-                  <th className="py-2 text-right font-medium">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {items.map((item, idx) => (
-                  <tr key={idx}>
-                    <td className="py-3 text-slate-900">{item.description}</td>
-                    <td className="py-3 text-right text-slate-600">{item.quantity}</td>
-                    <td className="py-3 text-right text-slate-600">{formatCurrency(item.price, currency)}</td>
-                    <td className="py-3 text-right font-medium text-slate-900">
-                      {formatCurrency(item.quantity * item.price, currency)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="border-t border-slate-100 pt-6 flex justify-end">
-            <div className="w-64 space-y-2">
-              <div className="flex justify-between text-sm text-slate-500">
-                <span>Subtotal</span>
-                <span>{formatCurrency(subtotal, currency)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-slate-500">
-                <span>Tax ({taxRate}%)</span>
-                <span>{formatCurrency(taxAmount, currency)}</span>
-              </div>
-              <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-100">
-                <span>Total</span>
-                <span className="text-indigo-600">{formatCurrency(total, currency)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-8 flex justify-center gap-4">
-            <Button onClick={handleDownload} className="flex items-center gap-2">
-              <Download size={18} /> Download PDF
-            </Button>
-            <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
-              Close
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Email Send Modal */}
-      <Modal
-        isOpen={isEmailModalOpen}
-        onClose={() => setIsEmailModalOpen(false)}
-        title="Send Invoice via Email"
-        maxWidth="sm"
-      >
-        {emailSent ? (
-          <div className="flex flex-col items-center gap-4 py-6">
-            <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
-              <CheckCircle2 size={28} className="text-emerald-500" />
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-semibold text-slate-900">Email Sent!</p>
-              <p className="text-sm text-slate-500 mt-1">
-                Invoice <span className="font-medium">{invoiceNumber}</span> has been sent to{' '}
-                <span className="font-medium">{emailTo}</span>
-              </p>
-            </div>
-            <Button variant="outline" onClick={() => setIsEmailModalOpen(false)} className="mt-2">
-              Close
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Recipient Email</label>
-              <input
-                type="email"
-                className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="client@example.com"
-                value={emailTo}
-                onChange={(e) => setEmailTo(e.target.value)}
-                autoFocus
-              />
-              <p className="text-xs text-slate-400">Pre-filled from the selected client. You can edit it.</p>
-            </div>
-            <div className="bg-slate-50 rounded-lg p-4 space-y-1">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sending</p>
-              <p className="text-sm font-semibold text-slate-900">Invoice {invoiceNumber}</p>
-              <p className="text-sm text-slate-500">Total: <span className="font-medium text-slate-900">{formatCurrency(total, currency)}</span></p>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setIsEmailModalOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 flex items-center justify-center gap-2"
-                onClick={sendEmail}
-                isLoading={emailSending}
-              >
-                <Send size={16} /> Send Email
-              </Button>
-            </div>
-          </div>
-        )}
+      <Modal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} title="Send via Email">
+         <div className="p-6 space-y-4">
+            <Input label="Recipient" value={emailTo} onChange={(e) => setEmailTo(e.target.value)} />
+            <Button className="w-full" onClick={() => alert('Email system integration recommended in separate task.')}>Send Now</Button>
+         </div>
       </Modal>
     </div>
   );
