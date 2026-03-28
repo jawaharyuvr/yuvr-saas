@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import QRCode from 'qrcode';
 import { formatCurrency, formatDate } from './format';
 
 type TemplateType = 
@@ -38,6 +39,8 @@ interface InvoiceData {
   notes?: string;
   paymentInstructions?: string;
   discount?: number;
+  upiId?: string;
+  qrCodeEnabled?: boolean;
 }
 
 const hexToRgb = (hex: string): [number, number, number] => {
@@ -47,7 +50,7 @@ const hexToRgb = (hex: string): [number, number, number] => {
   return [r, g, b];
 };
 
-export const generateInvoicePDF = (data: InvoiceData, returnBase64 = false): string | void => {
+export const generateInvoicePDF = async (data: InvoiceData, returnBase64 = false): Promise<string | void> => {
   const doc = new jsPDF();
   const template = (data.template as TemplateType) || 'professional_business';
   const brandColor = data.brandColor || '#6366f1';
@@ -319,6 +322,30 @@ export const generateInvoicePDF = (data: InvoiceData, returnBase64 = false): str
   cursorY += 5;
   drawTotalLine("TOTAL DUE", formatCurrency(data.total, data.currency), true);
 
+  // QR CODE SECTION
+  if (data.upiId && data.qrCodeEnabled) {
+    const upiUri = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.companyName || 'Business')}&am=${data.total}&cu=${data.currency === 'INR' ? 'INR' : 'USD'}&tn=Invoice ${data.invoiceNumber}`;
+    try {
+      const qrDataUrl = await QRCode.toDataURL(upiUri, {
+        margin: 1,
+        width: 100,
+        color: {
+          dark: isDark ? '#ffffff' : '#000000',
+          light: isDark ? '#1e293b' : '#ffffff',
+        }
+      });
+      // Place QR code in bottom left if there's room, otherwise on a new page or shifted
+      const qrSize = 35;
+      const qrY = pageHeight - 50; // Above footer
+      doc.addImage(qrDataUrl, 'PNG', margin, qrY, qrSize, qrSize);
+      doc.setFontSize(7);
+      doc.setTextColor(isDark ? 200 : 150, isDark ? 200 : 150, isDark ? 200 : 150);
+      doc.text("Scan to Pay with UPI", margin, qrY + qrSize + 4);
+    } catch (e) {
+      console.error('QR Generation failed:', e);
+    }
+  }
+
   // NOTES & SIGNATURE
   cursorY += 10;
   if (data.notes || data.paymentInstructions) {
@@ -350,4 +377,3 @@ export const generateInvoicePDF = (data: InvoiceData, returnBase64 = false): str
     doc.save(`${data.invoiceNumber}.pdf`);
   }
 };
-
