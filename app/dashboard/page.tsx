@@ -9,7 +9,6 @@ import {
   Plus,
   Users,
   Globe,
-  Eye, 
   Download, 
   Trash2,
   Mail,
@@ -24,6 +23,8 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { CURRENCIES, convertAmount } from '@/utils/constants';
 import { generateInvoicePDF } from '@/utils/pdf';
+import { buildInvoiceData, fetchUserBranding, type UserBranding, type AssembledInvoice } from '@/utils/invoiceEngine';
+import { InvoicePreviewModal } from '@/components/InvoicePreviewModal';
 import { Modal } from '@/components/ui/Modal';
 import { formatDate } from '@/utils/format';
 import { useTranslation } from '@/contexts/LanguageContext';
@@ -65,19 +66,15 @@ export default function DashboardPage() {
   const [recentInvoices, setRecentInvoices] = useState<RecentInvoice[]>([]);
   const [topClients, setTopClients] = useState<any[]>([]);
   const [dashboardCurrency, setDashboardCurrency] = useState('USD');
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  // Preview
+  const [selectedInvoice, setSelectedInvoice] = useState<AssembledInvoice | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [userProfile, setUserProfile] = useState<{ 
-    logo_url?: string; 
-    company_name?: string;
-    brand_color?: string;
-    custom_font?: string;
-    invoice_template?: string;
-    username?: string;
-    full_name?: string;
-    upi_id?: string;
-    qr_code_enabled?: boolean;
-  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Branding (fetched once alongside dashboard data)
+  const [userBranding, setUserBranding] = useState<UserBranding & { username?: string; full_name?: string } | null>(null);
+
+  // Email
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailTo, setEmailTo] = useState('');
   const [emailInvoiceNumber, setEmailInvoiceNumber] = useState('');
@@ -85,7 +82,9 @@ export default function DashboardPage() {
   const [emailCurrency, setEmailCurrency] = useState('USD');
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  const [selectedEmailInvoice, setSelectedEmailInvoice] = useState<any>(null);
+  const [selectedEmailInvoiceId, setSelectedEmailInvoiceId] = useState<string | null>(null);
+
+  // Username
   const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -110,7 +109,7 @@ export default function DashboardPage() {
         .single();
       
       if (profile) {
-        setUserProfile(profile);
+        setUserBranding(profile);
         if (!profile.username) {
           setIsUsernameModalOpen(true);
         }
@@ -192,64 +191,28 @@ export default function DashboardPage() {
   };
 
   const handlePreview = async (inv: RecentInvoice) => {
-    const { data } = await supabase
-      .from('invoice_items')
-      .select('*')
-      .eq('invoice_id', inv.id);
-    
-    if (data) {
-      setSelectedInvoice({
-        ...inv,
-        client: inv.clients,
-        items: data.map(item => ({
-          description: item.description,
-          quantity: item.quantity,
-          price: item.unit_price
-        }))
-      });
-      setIsPreviewOpen(true);
-    }
+    setPreviewLoading(true);
+    setIsPreviewOpen(true);
+    setSelectedInvoice(null);
+    const assembled = await buildInvoiceData(inv.id, userBranding);
+    setSelectedInvoice(assembled);
+    setPreviewLoading(false);
   };
 
-  const handleDownload = async (inv: any) => {
-    const { data } = await supabase
-      .from('invoice_items')
-      .select('*')
-      .eq('invoice_id', inv.id);
-    
-    if (data) {
-      await generateInvoicePDF({
-        invoiceNumber: inv.invoice_number,
-        date: new Date(),
-        dueDate: new Date(inv.due_date),
-        client: {
-          name: inv.clients?.name || inv.client?.name || 'Unknown',
-          email: inv.clients?.email || inv.client?.email || '',
-          address: inv.clients?.address || inv.client?.address || ''
-        },
-        items: data.map(item => ({
-          description: item.description,
-          quantity: item.quantity,
-          price: item.unit_price
-        })),
-        taxRate: inv.tax_rate || 0,
-        total: inv.total_amount,
-        currency: inv.currency || 'USD',
-        logoUrl: userProfile?.logo_url,
-        companyName: userProfile?.company_name,
-        brandColor: userProfile?.brand_color,
-        customFont: userProfile?.custom_font,
-        template: userProfile?.invoice_template,
-        upiId: userProfile?.upi_id,
-        qrCodeEnabled: userProfile?.qr_code_enabled
-      });
+  const handleDownload = async (inv: AssembledInvoice | RecentInvoice) => {
+    let assembled: AssembledInvoice | null;
+    if ('items' in inv && 'template' in inv) {
+      assembled = inv as AssembledInvoice;
+    } else {
+      assembled = await buildInvoiceData((inv as RecentInvoice).id, userBranding);
     }
+    if (!assembled) return;
+    await generateInvoicePDF(assembled);
   };
 
   const handleOpenEmailModal = (inv: RecentInvoice) => {
-    const invAny = inv as any;
-    setSelectedEmailInvoice(invAny);
-    setEmailTo(invAny.clients?.email || '');
+    setSelectedEmailInvoiceId(inv.id);
+    setEmailTo(inv.clients?.email || '');
     setEmailInvoiceNumber(inv.invoice_number);
     setEmailTotal(inv.total_amount);
     setEmailCurrency(inv.currency || 'USD');
@@ -259,40 +222,14 @@ export default function DashboardPage() {
 
   const sendEmail = async () => {
     if (!emailTo || !emailTo.includes('@')) return alert('Please enter a valid email address');
-    if (!selectedEmailInvoice) return alert('No invoice selected');
+    if (!selectedEmailInvoiceId) return alert('No invoice selected');
 
     setEmailSending(true);
     try {
-      const { data: items } = await supabase
-        .from('invoice_items')
-        .select('*')
-        .eq('invoice_id', selectedEmailInvoice.id);
+      const assembled = await buildInvoiceData(selectedEmailInvoiceId, userBranding);
+      if (!assembled) throw new Error('Could not load invoice data');
 
-      const pdfBase64 = await generateInvoicePDF({
-        invoiceNumber: selectedEmailInvoice.invoice_number,
-        date: selectedEmailInvoice.created_at ? new Date(selectedEmailInvoice.created_at) : new Date(),
-        dueDate: selectedEmailInvoice.due_date ? new Date(selectedEmailInvoice.due_date) : new Date(),
-        client: {
-          name: selectedEmailInvoice.clients?.name || 'Unknown',
-          email: selectedEmailInvoice.clients?.email || '',
-          address: (selectedEmailInvoice.clients as any)?.address || ''
-        },
-        items: (items || []).map(item => ({
-          description: item.description,
-          quantity: item.quantity,
-          price: item.unit_price
-        })),
-        taxRate: selectedEmailInvoice.tax_rate || 0,
-        total: selectedEmailInvoice.total_amount,
-        currency: selectedEmailInvoice.currency || 'USD',
-        logoUrl: userProfile?.logo_url,
-        companyName: userProfile?.company_name,
-        brandColor: userProfile?.brand_color,
-        customFont: userProfile?.custom_font,
-        template: userProfile?.invoice_template,
-        upiId: userProfile?.upi_id,
-        qrCodeEnabled: userProfile?.qr_code_enabled
-      }, true);
+      const pdfBase64 = await generateInvoicePDF(assembled, true);
 
       const res = await fetch('/api/v1/emails/send', {
         method: 'POST',
@@ -300,7 +237,11 @@ export default function DashboardPage() {
         body: JSON.stringify({ 
           to: emailTo, 
           invoiceNumber: emailInvoiceNumber,
-          pdfBase64
+          pdfBase64,
+          brandColor: userBranding?.brand_color,
+          companyName: userBranding?.company_name,
+          totalAmount: emailTotal,
+          currency: emailCurrency,
         }),
       });
       const data = await res.json();
@@ -344,7 +285,7 @@ export default function DashboardPage() {
 
       if (updateError) throw updateError;
       setIsUsernameModalOpen(false);
-      setUserProfile(prev => prev ? { ...prev, username: newUsername.toLowerCase() } : null);
+      setUserBranding(prev => prev ? { ...prev, username: newUsername.toLowerCase() } : null);
     } catch (error: any) {
       setUsernameError(error.message);
     } finally {
@@ -359,6 +300,8 @@ export default function DashboardPage() {
     { label: t('dashboard.totalRevenue'), value: formatCurrency(statsData.totalRevenue, dashboardCurrency), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
   ];
 
+  const brand = userBranding?.brand_color || '#6366f1';
+
   return (
     <PageTransition>
       <div className="space-y-8">
@@ -366,7 +309,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{t('sidebar.dashboard')}</h1>
           <p className="text-slate-500 text-sm">
-            {t('dashboard.welcome')}{userProfile?.username ? `, ${userProfile.username}` : ''}
+            {t('dashboard.welcome')}{userBranding?.username ? `, ${userBranding.username}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -472,7 +415,7 @@ export default function DashboardPage() {
                               </button>
                             )}
                             <button onClick={() => handlePreview(inv)} className="p-1 hover:text-indigo-600 transition-colors" title="Preview">
-                              <Eye size={16} />
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
                             <button onClick={() => handleDownload(inv)} className="p-1 hover:text-amber-600 transition-colors" title="Download PDF">
                               <Download size={16} />
@@ -552,7 +495,50 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* ... Preview and Modal code follows ... */}
+      {/* ── Invoice Preview Modal (template-aware, shared component) ── */}
+      <InvoicePreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => { setIsPreviewOpen(false); setSelectedInvoice(null); }}
+        invoice={selectedInvoice}
+        loading={previewLoading}
+        onDownload={(inv) => handleDownload(inv)}
+      />
+
+      {/* ── Email Modal ── */}
+      <Modal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} title="Send Invoice" maxWidth="sm">
+        {emailSent ? (
+          <div className="flex flex-col items-center gap-4 py-6">
+            <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
+              <CheckCircle2 size={28} className="text-emerald-500" />
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-semibold text-slate-900">Email Sent!</p>
+              <p className="text-sm text-slate-500 mt-1">Invoice <span className="font-medium">{emailInvoiceNumber}</span> sent to <span className="font-medium">{emailTo}</span></p>
+            </div>
+            <Button variant="outline" onClick={() => setIsEmailModalOpen(false)} className="mt-2">Close</Button>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Recipient Email</label>
+              <input type="email" className="flex h-10 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="client@example.com" value={emailTo} onChange={e => setEmailTo(e.target.value)} autoFocus />
+            </div>
+            <div className="bg-slate-50 rounded-lg p-4 space-y-1">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sending</p>
+              <p className="text-sm font-semibold text-slate-900">Invoice {emailInvoiceNumber}</p>
+              <p className="text-sm text-slate-500">Total: <span className="font-medium text-slate-900">{formatCurrency(emailTotal, emailCurrency)}</span></p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setIsEmailModalOpen(false)}>Cancel</Button>
+              <Button className="flex-1 flex items-center justify-center gap-2" onClick={sendEmail} isLoading={emailSending}>
+                <Send size={16} /> Send Email
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       </div>
     </PageTransition>
   );

@@ -79,7 +79,7 @@ export async function POST(req: Request) {
           }
         }
 
-        const pdfBase64 = generateInvoicePDF({
+        const pdfBase64 = (await generateInvoicePDF({
           invoiceNumber: invoice_number,
           date: new Date(),
           dueDate: new Date(invoice.due_date),
@@ -98,10 +98,11 @@ export async function POST(req: Request) {
           currency: currency || 'USD',
           logoUrl: logoBase64,
           companyName: profile.company_name,
+          companyPhone: profile.phone,
           brandColor: profile.brand_color,
           customFont: profile.custom_font,
           template: profile.invoice_template
-        }, true) as string;
+        }, true) as unknown) as string;
 
         await sendInvoiceEmail(client.email, invoice_number, pdfBase64, {
           brandColor: profile.brand_color,

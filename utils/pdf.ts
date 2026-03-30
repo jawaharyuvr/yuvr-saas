@@ -2,37 +2,32 @@ import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
 import { formatCurrency, formatDate } from './format';
 
-type TemplateType = 
-  | 'minimal_corporate' 
-  | 'elegant_luxury' 
-  | 'creative_agency' 
-  | 'tech_startup' 
-  | 'dark_mode' 
-  | 'professional_business' 
-  | 'colorful_freelancer' 
-  | 'scandinavian_minimal' 
-  | 'bold_modern' 
+type TemplateType =
+  | 'minimal_corporate'
+  | 'elegant_luxury'
+  | 'creative_agency'
+  | 'tech_startup'
+  | 'dark_mode'
+  | 'professional_business'
+  | 'colorful_freelancer'
+  | 'scandinavian_minimal'
+  | 'bold_modern'
   | 'premium_finance';
 
 interface InvoiceData {
   invoiceNumber: string;
   date: string | Date;
   dueDate: string | Date;
-  client: {
-    name: string;
-    email: string;
-    address?: string;
-  };
-  items: Array<{
-    description: string;
-    quantity: number;
-    price: number;
-  }>;
+  client: { name: string; email: string; address?: string; phone?: string; };
+  items: Array<{ description: string; quantity: number; price: number; }>;
   taxRate: number;
   total: number;
   currency: string;
   logoUrl?: string;
   companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
   brandColor?: string;
   customFont?: string;
   template?: TemplateType | string;
@@ -44,336 +39,418 @@ interface InvoiceData {
 }
 
 const hexToRgb = (hex: string): [number, number, number] => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return [r, g, b];
+  const c = hex.replace('#', '');
+  if (c.length !== 6) return [99, 102, 241];
+  return [parseInt(c.slice(0,2),16), parseInt(c.slice(2,4),16), parseInt(c.slice(4,6),16)];
 };
 
+const blend = (rgb: [number,number,number], a: number): [number,number,number] => [
+  Math.round(rgb[0]*a + 255*(1-a)),
+  Math.round(rgb[1]*a + 255*(1-a)),
+  Math.round(rgb[2]*a + 255*(1-a)),
+];
+
 export const generateInvoicePDF = async (data: InvoiceData, returnBase64 = false): Promise<string | void> => {
-  const doc = new jsPDF();
-  const template = (data.template as TemplateType) || 'professional_business';
-  const brandColor = data.brandColor || '#6366f1';
-  const rgbBrand = hexToRgb(brandColor);
-  const font = data.customFont === 'Inter' ? 'helvetica' : 'helvetica';
-  const margin = 20;
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const tpl = (data.template as TemplateType) || 'professional_business';
+  const isDark = tpl === 'dark_mode';
+  const brand = data.brandColor || '#6366f1';
+  const rgb = hexToRgb(brand);
 
-  // Dark Mode Support
-  const isDark = template === 'dark_mode';
-  if (isDark) {
-    doc.setFillColor(30, 41, 59);
-    doc.rect(0, 0, pageWidth, pageHeight, 'F');
-    doc.setTextColor(255, 255, 255);
-  } else {
-    doc.setTextColor(30, 41, 59);
-  }
+  const PW = doc.internal.pageSize.getWidth();   // 210
+  const PH = doc.internal.pageSize.getHeight();  // 297
+  const ML = 15;
+  const MR = 15;
+  const CW = PW - ML - MR;
 
-  const drawBackground = () => {
-    if (template === 'tech_startup') {
-      doc.setFillColor(rgbBrand[0], rgbBrand[1], rgbBrand[2]);
-      doc.rect(0, 0, pageWidth, 5, 'F');
-    } else if (template === 'creative_agency') {
-       // Light 20% opacity circle in top right
-       const mixR = Math.round(rgbBrand[0] * 0.20 + 255 * 0.80);
-       const mixG = Math.round(rgbBrand[1] * 0.20 + 255 * 0.80);
-       const mixB = Math.round(rgbBrand[2] * 0.20 + 255 * 0.80);
-       doc.setFillColor(mixR, mixG, mixB);
-       doc.circle(pageWidth, 0, 45, 'F');
-    } else if (template === 'premium_finance') {
-       doc.setDrawColor(rgbBrand[0], rgbBrand[1], rgbBrand[2]);
-       doc.setLineWidth(0.7);
-       doc.line(margin, 10, pageWidth - margin, 10);
-       doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
-    } else if (template === 'bold_modern') {
-       doc.setFillColor(rgbBrand[0], rgbBrand[1], rgbBrand[2]);
-       doc.rect(pageWidth - 60, 0, 60, 80, 'F');
-    }
+  // Palette
+  const TEXT_DARK: [number,number,number]  = isDark ? [240,240,240] : [15,23,42];
+  const TEXT_MID:  [number,number,number]  = isDark ? [148,163,184] : [71,85,105];
+  const TEXT_MUTE: [number,number,number]  = isDark ? [100,116,139] : [148,163,184];
+  const LINE_CLR:  [number,number,number]  = isDark ? [51,65,85]    : [226,232,240];
+  const PAGE_BG:   [number,number,number]  = isDark ? [15,23,42]    : [255,255,255];
+
+  // Page background
+  doc.setFillColor(...PAGE_BG); doc.rect(0,0,PW,PH,'F');
+
+  let Y = 0; // will be set by header draw
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
+  const setFont = (size: number, style: 'bold'|'normal'|'italic' = 'normal', f = 'helvetica') => {
+    doc.setFont(f, style); doc.setFontSize(size);
+  };
+  const hRule = (y: number, color = LINE_CLR, lw = 0.25) => {
+    doc.setDrawColor(...color); doc.setLineWidth(lw); doc.line(ML, y, PW-MR, y);
+  };
+  const addLogo = (x: number, y: number, maxW = 32, maxH = 20) => {
+    if (data.logoUrl) { try { doc.addImage(data.logoUrl, 'PNG', x, y, maxW, maxH); } catch(_){} }
   };
 
-  const drawHeader = () => {
-    let cursorY = 25;
-    doc.setFont(font, "bold");
+  // ─── TEMPLATE HEADERS ────────────────────────────────────────────────────────
 
-    // Helper to draw standard logo for most templates
-    const drawStandardLogo = () => {
-      if (data.logoUrl) {
-        try {
-          doc.addImage(data.logoUrl, 'PNG', margin, cursorY, 30, 30);
-          return 35; // height offset
-        } catch (e) {}
-      }
-      return 0;
-    };
-
-    if (template === 'minimal_corporate') {
-      const logoOffset = drawStandardLogo();
-      cursorY += logoOffset ? logoOffset + 10 : 0;
-      doc.setFontSize(28);
-      doc.text("INVOICE", margin, cursorY);
-      doc.setFontSize(10);
-      doc.setTextColor(isDark ? 200 : 150, isDark ? 200 : 150, isDark ? 200 : 150);
-      doc.text(`#${data.invoiceNumber || ''}`, pageWidth - margin, cursorY, { align: 'right' });
-      return Math.max(cursorY + 15, 45);
-    }
-
-    if (template === 'elegant_luxury') {
-      if (data.logoUrl) {
-        try {
-          doc.addImage(data.logoUrl, 'PNG', (pageWidth/2) - 15, cursorY, 30, 30);
-          cursorY += 40;
-        } catch (e) {}
-      }
-      doc.setFontSize(32);
-      doc.setTextColor(rgbBrand[0], rgbBrand[1], rgbBrand[2]);
-      doc.text("INVOICE", pageWidth / 2, cursorY, { align: 'center' });
-      doc.setFontSize(9);
-      doc.setTextColor(isDark ? 255 : 51, isDark ? 255 : 51, isDark ? 255 : 51);
-      doc.text(`NUMBER: ${data.invoiceNumber || ''}`, pageWidth / 2, cursorY + 8, { align: 'center' });
-      return Math.max(cursorY + 20, 70);
-    }
-
-    if (template === 'creative_agency') {
-      const logoOffset = drawStandardLogo();
-      doc.setTextColor(rgbBrand[0], rgbBrand[1], rgbBrand[2]);
-      doc.setFontSize(36);
-      doc.text("INVOICE", pageWidth - margin, 35, { align: "right" });
-      doc.setFontSize(10);
-      doc.setTextColor(isDark ? 200 : 100, isDark ? 200 : 100, isDark ? 200 : 100);
-      doc.text(`#${data.invoiceNumber || ''}`, pageWidth - margin, 42, { align: "right" });
-      return Math.max(cursorY + logoOffset, 60);
-    }
-
-    if (template === 'tech_startup') {
-      const logoOffset = drawStandardLogo();
-      cursorY += logoOffset ? logoOffset + 5 : 0;
-      doc.setFontSize(24);
-      doc.text("INVOICE", margin, cursorY);
-      doc.setFontSize(10);
-      doc.setTextColor(rgbBrand[0], rgbBrand[1], rgbBrand[2]);
-      doc.text(data.invoiceNumber || '', margin, cursorY + 7);
-      return Math.max(cursorY + 20, 70);
-    }
-
-    if (template === 'scandinavian_minimal') {
-       const logoOffset = drawStandardLogo();
-       cursorY += logoOffset ? logoOffset + 10 : 0;
-       doc.setFontSize(20);
-       doc.setFont(font, 'normal');
-       doc.text("INVOICE", margin, cursorY);
-       doc.setFontSize(10);
-       doc.text(`#${data.invoiceNumber || ''}`, pageWidth - margin, cursorY, { align: "right" });
-       return Math.max(cursorY + 15, 60);
-    }
-
-    if (template === 'bold_modern') {
-       const logoOffset = drawStandardLogo();
-       doc.setFontSize(36);
-       doc.setTextColor(isDark ? 30 : 255, isDark ? 30 : 255, isDark ? 30 : 255);
-       doc.text("INVOICE", pageWidth - 30, 45, { align: 'center' });
-       doc.setFontSize(10);
-       doc.setTextColor(isDark ? 200 : 255, isDark ? 200 : 255, isDark ? 200 : 255);
-       doc.text(data.invoiceNumber || '', pageWidth - 30, 55, { align: 'center' });
-       return Math.max(cursorY + logoOffset, 90);
-    }
-
-    // Default Header (Professional)
-    const logoOffset = drawStandardLogo();
-    cursorY += logoOffset;
-    doc.setTextColor(rgbBrand[0], rgbBrand[1], rgbBrand[2]);
-    doc.setFontSize(22);
-    doc.text("INVOICE", pageWidth - margin, 35, { align: "right" });
-    doc.setFontSize(10);
-    doc.setTextColor(isDark ? 200 : 100, isDark ? 200 : 100, isDark ? 200 : 100);
-    doc.text(data.invoiceNumber || '', pageWidth - margin, 42, { align: "right" });
-    return Math.max(cursorY, 60);
+  // 1. PROFESSIONAL BUSINESS — full-width solid brand header
+  const drawProfessionalBusiness = () => {
+    doc.setFillColor(rgb[0],rgb[1],rgb[2]);
+    doc.rect(0,0,PW,36,'F');
+    addLogo(ML,8,28,18);
+    setFont(22,'bold'); doc.setTextColor(255,255,255);
+    doc.text('INVOICE', PW-MR, 18, {align:'right'});
+    setFont(8); doc.setTextColor(255,255,255,0.75 as any);
+    doc.text(`No. ${data.invoiceNumber}`, PW-MR, 25, {align:'right'});
+    doc.text(data.companyName||'', PW-MR, 30, {align:'right'});
+    Y = 44;
   };
 
-  drawBackground();
-  let cursorY = drawHeader();
+  // 2. MINIMAL CORPORATE — clean lines, centered logo
+  const drawMinimalCorporate = () => {
+    if (data.logoUrl) { addLogo(ML,10,28,18); Y=32; } else { Y=16; }
+    setFont(20,'bold'); doc.setTextColor(...TEXT_DARK);
+    doc.text('INVOICE', PW-MR, 24, {align:'right'});
+    setFont(8); doc.setTextColor(...TEXT_MUTE);
+    doc.text(`No. ${data.invoiceNumber}`, PW-MR, 30, {align:'right'});
+    hRule(36);
+    Y = 42;
+  };
 
-  // BILLING SECTION
-  const billingX = margin;
-  doc.setFontSize(10);
-  doc.setTextColor(isDark ? 200 : 100, isDark ? 200 : 100, isDark ? 200 : 100);
-  doc.setFont(font, "bold");
-  doc.text("BILL TO", billingX, cursorY);
+  // 3. ELEGANT LUXURY — centered title, thin frame border
+  const drawElegantLuxury = () => {
+    doc.setDrawColor(...TEXT_MUTE); doc.setLineWidth(0.3);
+    doc.rect(6,6,PW-12,PH-12);
+    if (data.logoUrl) addLogo(PW/2-14,12,28,16); 
+    setFont(30,'bold','times'); doc.setTextColor(...blend(rgb,0.7));
+    doc.text('INVOICE', PW/2, 44, {align:'center'});
+    setFont(9,'italic','times'); doc.setTextColor(...TEXT_MUTE);
+    doc.text(`N° ${data.invoiceNumber}`, PW/2, 51, {align:'center'});
+    hRule(56);
+    Y = 62;
+  };
 
-  doc.setTextColor(isDark ? 255 : 30, isDark ? 255 : 30, isDark ? 255 : 30);
-  doc.setFontSize(12);
-  doc.text(data.client.name, billingX, cursorY + 7);
-  
-  doc.setFontSize(9);
-  doc.setFont(font, "normal");
-  let billingGutter = 13;
-  if (data.client.address) {
-    const splitAddress = doc.splitTextToSize(data.client.address, 70);
-    doc.text(splitAddress, billingX, cursorY + billingGutter);
-    billingGutter += (splitAddress.length * 4) + 2;
+  // 4. CREATIVE AGENCY — thick left sidebar panel
+  const drawCreativeAgency = () => {
+    const SW = 58; // sidebar width
+    doc.setFillColor(rgb[0],rgb[1],rgb[2]);
+    doc.rect(0,0,SW,PH,'F');
+    if (data.logoUrl) addLogo(8,10,38,24);
+    setFont(8,'bold'); doc.setTextColor(255,255,255);
+    doc.text(data.companyName||'AGENCY', 8, 42);
+    if (data.companyPhone) { setFont(7); doc.text(data.companyPhone, 8, 48); }
+    setFont(26,'bold'); doc.setTextColor(255,255,255);
+    doc.text('INV', 8, 70);
+    setFont(9); doc.text(data.invoiceNumber||'', 8, 77);
+    // Bill To in sidebar
+    setFont(6,'bold'); doc.setTextColor(255,255,255);
+    doc.text('BILL TO', 8, 94);
+    setFont(8,'bold'); doc.text((data.client.name||'').toUpperCase(), 8, 100);
+    setFont(7,'normal'); doc.setTextColor(220,220,255);
+    if (data.client.email) doc.text(data.client.email, 8, 106);
+    if (data.client.address) {
+      const lines = doc.splitTextToSize(data.client.address, SW-12);
+      doc.text(lines, 8, 111);
+    }
+    Y = 14; // content starts right of sidebar
+  };
+
+  // 5. TECH STARTUP — "card" header background
+  const drawTechStartup = () => {
+    const tint = blend(rgb, 0.07);
+    doc.setFillColor(...tint); doc.roundedRect(ML,10,CW,30,3,3,'F');
+    addLogo(ML+6,14,22,18);
+    setFont(11,'bold'); doc.setTextColor(...TEXT_DARK);
+    doc.text(data.companyName||'STARTUP INC', ML+34, 24);
+    setFont(8); doc.setTextColor(...TEXT_MID);
+    if (data.companyPhone) doc.text(data.companyPhone, ML+34, 30);
+    setFont(22,'bold'); doc.setTextColor(rgb[0],rgb[1],rgb[2]);
+    doc.text('INVOICE', PW-MR-4, 30, {align:'right'});
+    setFont(8); doc.setTextColor(...TEXT_MUTE);
+    doc.text(`# ${data.invoiceNumber}`, PW-MR-4, 36, {align:'right'});
+    Y = 50;
+  };
+
+  // 6. DARK MODE — glowing brand title
+  const drawDarkMode = () => {
+    doc.setFillColor(15,23,42); doc.rect(0,0,PW,PH,'F');
+    // Accent top strip
+    doc.setFillColor(rgb[0],rgb[1],rgb[2]); doc.rect(0,0,PW,3,'F');
+    if (data.logoUrl) addLogo(ML,10,26,16);
+    setFont(26,'bold'); doc.setTextColor(rgb[0],rgb[1],rgb[2]);
+    doc.text('INVOICE', PW-MR, 24, {align:'right'});
+    setFont(9); doc.setTextColor(...TEXT_MID);
+    doc.text(`No. ${data.invoiceNumber}`, PW-MR, 31, {align:'right'});
+    setFont(8); doc.setTextColor(rgb[0],rgb[1],rgb[2]);
+    doc.text(data.companyName||'', ML, 23);
+    if (data.companyPhone) { setFont(7); doc.setTextColor(...TEXT_MID); doc.text(data.companyPhone, ML, 29); }
+    hRule(36, [51,65,85]);
+    Y = 42;
+  };
+
+  // 7. COLORFUL FREELANCER — warm amber diagonal accent
+  const drawColorfulFreelancer = () => {
+    // Warm amber top arc
+    doc.setFillColor(245,158,11);
+    doc.roundedRect(0,0,PW,28,0,0,'F');
+    setFont(20,'bold'); doc.setTextColor(255,255,255);
+    doc.text('INVOICE', ML, 20);
+    setFont(9); doc.setTextColor(255,255,255);
+    doc.text(`#${data.invoiceNumber}`, ML, 26);
+    if (data.logoUrl) addLogo(PW-MR-32,4,28,20);
+    Y = 36;
+  };
+
+  // 8. SCANDINAVIAN MINIMAL — pure whitespace, fine hairlines
+  const drawScandinavianMinimal = () => {
+    if (data.logoUrl) addLogo(ML,10,26,16); 
+    setFont(9); doc.setTextColor(...TEXT_MUTE);
+    doc.text(data.companyName||'', ML, 32);
+    setFont(18,'normal'); doc.setTextColor(...TEXT_MUTE);
+    doc.text('INVOICE', PW-MR, 22, {align:'right'});
+    setFont(8); doc.setTextColor(...TEXT_MUTE);
+    doc.text(data.invoiceNumber, PW-MR, 29, {align:'right'});
+    hRule(36, TEXT_MUTE, 0.15);
+    Y = 42;
+  };
+
+  // 9. BOLD MODERN — dark header with left brand accent strip (matches HTML BoldModernHeader)
+  const drawBoldModern = () => {
+    // Dark header — slate-900 (15,23,42)
+    doc.setFillColor(15,23,42);
+    doc.rect(0,0,PW,36,'F');
+    // Left brand-colored accent strip (matches HTML's w-1.5 left bar)
+    doc.setFillColor(rgb[0],rgb[1],rgb[2]);
+    doc.rect(0,0,3,36,'F');
+    // Logo
+    if (data.logoUrl) addLogo(ML, 8, 22, 18);
+    // INVOICE label — white, bold
+    setFont(22,'bold'); doc.setTextColor(255,255,255);
+    doc.text('INVOICE', data.logoUrl ? ML+26 : ML+6, 26);
+    // Invoice number — brand color, right-aligned
+    setFont(10,'bold'); doc.setTextColor(rgb[0],rgb[1],rgb[2]);
+    doc.text(`#${data.invoiceNumber}`, PW-MR, 22, {align:'right'});
+    // Company name — gray, right-aligned
+    setFont(8,'normal'); doc.setTextColor(148,163,184);
+    doc.text(data.companyName||'', PW-MR, 29, {align:'right'});
+    Y = 46;
+    doc.setTextColor(0,0,0);
+  };
+
+  // 10. PREMIUM FINANCE — deep navy header band, structured
+  const drawPremiumFinance = () => {
+    doc.setFillColor(15,23,42); doc.rect(0,0,PW,32,'F');
+    if (data.logoUrl) addLogo(ML,6,24,18);
+    setFont(8,'bold'); doc.setTextColor(148,163,184);
+    doc.text(data.companyName||'FINANCE CO.', ML+28, 18);
+    if (data.companyPhone) { setFont(7); doc.setTextColor(100,116,139); doc.text(data.companyPhone, ML+28, 24); }
+    setFont(22,'bold','times'); doc.setTextColor(255,255,255);
+    doc.text('INVOICE', PW-MR, 24, {align:'right'});
+    doc.setFillColor(rgb[0],rgb[1],rgb[2]); doc.rect(0,32,PW,2,'F');
+    Y = 42;
+  };
+
+  // ─── DISPATCH ────────────────────────────────────────────────────────────────
+  switch(tpl) {
+    case 'professional_business': drawProfessionalBusiness(); break;
+    case 'minimal_corporate':     drawMinimalCorporate();     break;
+    case 'elegant_luxury':        drawElegantLuxury();        break;
+    case 'creative_agency':       drawCreativeAgency();       break;
+    case 'tech_startup':          drawTechStartup();          break;
+    case 'dark_mode':             drawDarkMode();             break;
+    case 'colorful_freelancer':   drawColorfulFreelancer();   break;
+    case 'scandinavian_minimal':  drawScandinavianMinimal();  break;
+    case 'bold_modern':           drawBoldModern();           break;
+    case 'premium_finance':       drawPremiumFinance();       break;
+    default:                      drawProfessionalBusiness();
   }
-  doc.text(data.client.email, billingX, cursorY + billingGutter);
 
-  // DATES
-  const dateX = pageWidth - margin - 50;
-  doc.setFont(font, "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(isDark ? 200 : 100, isDark ? 200 : 100, isDark ? 200 : 100);
-  doc.text("Issue date:", dateX, cursorY + 7);
-  doc.setTextColor(isDark ? 255 : 30, isDark ? 255 : 30, isDark ? 255 : 30);
-  doc.text(formatDate(data.date), pageWidth - margin, cursorY + 7, { align: "right" });
-  
-  doc.setTextColor(isDark ? 200 : 100, isDark ? 200 : 100, isDark ? 200 : 100);
-  doc.text("Due date:", dateX, cursorY + 13);
-  doc.setTextColor(rgbBrand[0], rgbBrand[1], rgbBrand[2]);
-  doc.text(formatDate(data.dueDate), pageWidth - margin, cursorY + 13, { align: "right" });
+  // ─── CONTENT AREA ───────────────────────────────────────────────────────────
+  // For creative_agency, content shifts right of sidebar
+  const isCA = tpl === 'creative_agency';
+  const contentX = isCA ? 65 : ML;
+  const contentW = isCA ? (PW - 65 - MR) : CW;
+  const col1 = contentX;
+  const col2 = contentX + contentW * 0.56;  // QTY right-aligned
+  const col3 = contentX + contentW * 0.74;  // UNIT PRICE right-aligned
+  const col4 = contentX + contentW;         // TOTAL right-aligned
 
-  cursorY += Math.max(billingGutter + 20, 40);
+  // ─── META (dates) + BILL TO ──────────────────────────────────────────────────
+  if (!isCA) {
+    // Two-column layout: Bill To left | Invoice details right
+    const midX = contentX + contentW * 0.55;
 
-  // ITEMS TABLE
-  const tableMargin = margin;
-  const tableWidth = pageWidth - 2 * margin;
+    // Bill To
+    setFont(7,'bold'); doc.setTextColor(...TEXT_MUTE);
+    doc.text('BILL TO', contentX, Y);
+    Y += 5;
+    setFont(10,'bold'); doc.setTextColor(...TEXT_DARK);
+    doc.text(data.client.name||'', contentX, Y);
+    Y += 5;
+    setFont(8,'normal'); doc.setTextColor(...TEXT_MID);
+    if (data.client.address) {
+      const lines = doc.splitTextToSize(data.client.address, contentW*0.45);
+      doc.text(lines, contentX, Y);
+      Y += lines.length * 4.5;
+    }
+    if (data.client.email) { doc.text(data.client.email, contentX, Y); Y += 4.5; }
+    if (data.client.phone) { doc.text(data.client.phone, contentX, Y); }
 
-  if (template !== 'scandinavian_minimal' && template !== 'dark_mode') {
-    // Light background header
-    // Simulate ~15% opacity by interpolating towards white: 0.15 * brand + 0.85 * 255
-    const mixR = Math.round(rgbBrand[0] * 0.15 + 255 * 0.85);
-    const mixG = Math.round(rgbBrand[1] * 0.15 + 255 * 0.85);
-    const mixB = Math.round(rgbBrand[2] * 0.15 + 255 * 0.85);
-    doc.setFillColor(mixR, mixG, mixB);
-    doc.setDrawColor(mixR, mixG, mixB);
-    doc.roundedRect(tableMargin, cursorY, tableWidth, 10, 2, 2, 'F');
-    // Colored text
-    doc.setTextColor(rgbBrand[0], rgbBrand[1], rgbBrand[2]);
-  } else if (template === 'dark_mode') {
-    doc.setFillColor(51, 65, 85);
-    doc.roundedRect(tableMargin, cursorY, tableWidth, 10, 2, 2, 'F');
-    doc.setTextColor(200, 200, 200);
+    // Invoice meta (right column, same row level)
+    const metaStartY = Y - (data.client.address ? (doc.splitTextToSize(data.client.address||'',contentW*0.45).length*4.5) : 0) - (data.client.email?4.5:0) - 5 - 5;
+    const mY = metaStartY;
+    setFont(7,'bold'); doc.setTextColor(...TEXT_MUTE);
+    doc.text('INVOICE DATE', midX, mY);
+    setFont(8,'normal'); doc.setTextColor(...TEXT_DARK);
+    doc.text(formatDate(data.date), midX, mY+5);
+
+    setFont(7,'bold'); doc.setTextColor(...TEXT_MUTE);
+    doc.text('DUE DATE', midX, mY+12);
+    setFont(8,'bold'); doc.setTextColor(rgb[0],rgb[1],rgb[2]);
+    doc.text(formatDate(data.dueDate), midX, mY+17);
+
+    if (data.companyPhone) {
+      setFont(7,'bold'); doc.setTextColor(...TEXT_MUTE);
+      doc.text('FROM', PW-MR-50, mY);
+      setFont(8,'normal'); doc.setTextColor(...TEXT_DARK);
+      doc.text(data.companyName||'', PW-MR-50, mY+5);
+      doc.text(data.companyPhone, PW-MR-50, mY+10);
+    }
+
+    Y += 10;
   } else {
-    // scandinavian_minimal
-    doc.setTextColor(150, 150, 150);
-    doc.setDrawColor(220, 220, 220);
-    doc.line(tableMargin, cursorY + 10, pageWidth - margin, cursorY + 10);
+    // For creative agency, just show dates top-right of content area
+    setFont(7,'bold'); doc.setTextColor(...TEXT_MUTE);
+    doc.text('INVOICE DATE', contentX, Y);
+    setFont(8,'normal'); doc.setTextColor(...TEXT_DARK);
+    doc.text(formatDate(data.date), contentX, Y+5);
+    setFont(7,'bold'); doc.setTextColor(...TEXT_MUTE);
+    doc.text('DUE DATE', contentX+50, Y);
+    setFont(8,'bold'); doc.setTextColor(rgb[0],rgb[1],rgb[2]);
+    doc.text(formatDate(data.dueDate), contentX+50, Y+5);
+    Y += 14;
   }
 
-  doc.setFont(font, "bold");
-  doc.setFontSize(9);
-  doc.text("DESCRIPTION", tableMargin + 4, cursorY + 6.5);
-  doc.text("QTY", tableMargin + tableWidth - 60, cursorY + 6.5, { align: "right" });
-  doc.text("PRICE", tableMargin + tableWidth - 30, cursorY + 6.5, { align: "right" });
-  doc.text("TOTAL", tableMargin + tableWidth - 4, cursorY + 6.5, { align: "right" });
+  // ─── TABLE ───────────────────────────────────────────────────────────────────
+  Y += 4;
+  const TH = 8.5; // table header height
 
-  cursorY += 15;
-  doc.setTextColor(isDark ? 230 : 51, isDark ? 230 : 51, isDark ? 230 : 51);
-  doc.setFont(font, "normal");
+  // Table header bg
+  if (isDark) doc.setFillColor(30,41,59);
+  else if (tpl==='bold_modern') doc.setFillColor(0,0,0);
+  else doc.setFillColor(...blend(rgb,0.12));
+  doc.rect(contentX, Y, contentW, TH, 'F');
 
-  data.items.forEach((item) => {
-    const splitDesc = doc.splitTextToSize(item.description, 80);
-    doc.text(splitDesc, tableMargin + 4, cursorY);
-    doc.text(item.quantity.toString(), tableMargin + tableWidth - 60, cursorY, { align: "right" });
-    doc.text(item.price.toFixed(2), tableMargin + tableWidth - 30, cursorY, { align: "right" });
-    doc.text((item.quantity * item.price).toFixed(2), tableMargin + tableWidth - 4, cursorY, { align: "right" });
-    cursorY += (splitDesc.length * 5) + 3;
-    doc.setDrawColor(isDark ? 60 : 240, isDark ? 60 : 240, isDark ? 60 : 240);
-    doc.line(tableMargin, cursorY - 2, tableMargin + tableWidth - 4, cursorY - 2);
-    cursorY += 5;
+  setFont(7,'bold');
+  if (isDark||tpl==='bold_modern') doc.setTextColor(255,255,255);
+  else doc.setTextColor(rgb[0],rgb[1],rgb[2]);
+
+  doc.text('DESCRIPTION', col1+3, Y+5.5);
+  doc.text('QTY',   col2,  Y+5.5, {align:'right'});
+  doc.text('RATE',  col3,  Y+5.5, {align:'right'});
+  doc.text('AMOUNT',col4,  Y+5.5, {align:'right'});
+
+  Y += TH + 2;
+
+  // Rows
+  data.items.forEach((item, idx) => {
+    const descLines = doc.splitTextToSize(item.description||'—', (col2-col1-6));
+    const rowH = Math.max(9, descLines.length*4.8+3);
+
+    // Alternating tint
+    if (idx%2===1) {
+      doc.setFillColor(...(isDark ? [22,33,51] as [number,number,number] : [248,250,252] as [number,number,number]));
+      doc.rect(contentX, Y-1, contentW, rowH, 'F');
+    }
+
+    setFont(8.5,'normal'); doc.setTextColor(...TEXT_DARK);
+    doc.text(descLines, col1+3, Y+3.5);
+
+    setFont(8.5,'normal'); doc.setTextColor(...TEXT_MID);
+    doc.text(String(item.quantity), col2, Y+3.5, {align:'right'});
+    doc.text(formatCurrency(item.price, data.currency), col3, Y+3.5, {align:'right'});
+
+    setFont(8.5,'bold'); doc.setTextColor(...TEXT_DARK);
+    doc.text(formatCurrency(item.quantity*item.price, data.currency), col4, Y+3.5, {align:'right'});
+
+    Y += rowH;
+    doc.setDrawColor(...LINE_CLR); doc.setLineWidth(0.15);
+    doc.line(contentX, Y, col4, Y);
   });
 
-  // TOTALS SECTION
-  cursorY += 5;
-  const computedItemsSubtotal = data.items && data.items.length 
-    ? data.items.reduce((sum, item) => sum + ((item.quantity || 0) * (item.price || 0)), 0)
-    : 0;
-  
-  const subtotal = computedItemsSubtotal > 0 
-    ? computedItemsSubtotal 
-    : (data.total / (1 + (data.taxRate || 0) / 100));
-  
-  const taxAmount = data.total - subtotal;
-  
-  const drawTotalLine = (label: string, value: string, isGrandTotal = false) => {
-    doc.setFontSize(isGrandTotal ? 14 : 10);
-    doc.setFont(font, isGrandTotal ? "bold" : "normal");
-    
-    // Label
-    doc.setTextColor(isDark ? 200 : 100, isDark ? 200 : 100, isDark ? 200 : 100);
-    if (isGrandTotal) doc.setTextColor(isDark ? 255 : 30, isDark ? 255 : 30, isDark ? 255 : 30);
-    doc.text(label, tableMargin + tableWidth - 50, cursorY, { align: "right" });
-    
-    // Value
-    if (isGrandTotal) {
-      doc.setTextColor(template === 'dark_mode' ? 255 : rgbBrand[0], template === 'dark_mode' ? 255 : rgbBrand[1], template === 'dark_mode' ? 255 : rgbBrand[2]);
-    } else {
-      doc.setTextColor(isDark ? 255 : 30, isDark ? 255 : 30, isDark ? 255 : 30);
-    }
-    doc.text(value, tableMargin + tableWidth - 4, cursorY, { align: "right" });
-    
-    cursorY += isGrandTotal ? 12 : 7;
+  // ─── TOTALS ──────────────────────────────────────────────────────────────────
+  Y += 5;
+  const subtotal = data.items.reduce((s,i)=>s+(i.quantity*i.price),0);
+  const tax = data.taxRate>0 ? subtotal*(data.taxRate/100) : 0;
+  const TOTX = col3;
+  const TOTW = col4-col3;
+
+  const drawTotRow = (label: string, val: string, bold=false, color=false) => {
+    setFont(bold?9.5:8.5, bold?'bold':'normal');
+    doc.setTextColor(...TEXT_MID); doc.text(label, TOTX-2, Y, {align:'right'});
+    if(color) doc.setTextColor(rgb[0],rgb[1],rgb[2]); else doc.setTextColor(...TEXT_DARK);
+    doc.text(val, col4, Y, {align:'right'});
+    Y += bold ? 9 : 6;
   };
 
-  drawTotalLine("SUBTOTAL", formatCurrency(subtotal, data.currency));
-  if (data.taxRate > 0) {
-    drawTotalLine(`TAX (${data.taxRate}%):`, formatCurrency(taxAmount, data.currency));
-  }
-  
-  doc.setDrawColor(rgbBrand[0], rgbBrand[1], rgbBrand[2]);
-  doc.setLineWidth(0.5);
-  doc.line(tableMargin + tableWidth - 60, cursorY - 5, tableMargin + tableWidth - 4, cursorY - 5);
-  cursorY += 5;
-  drawTotalLine("TOTAL DUE", formatCurrency(data.total, data.currency), true);
+  drawTotRow('Subtotal', formatCurrency(subtotal, data.currency));
+  if (data.discount&&data.discount>0) drawTotRow('Discount', `-${formatCurrency(data.discount, data.currency)}`);
+  if (data.taxRate>0) drawTotRow(`Tax (${data.taxRate}%)`, formatCurrency(tax, data.currency));
 
-  // QR CODE SECTION
-  if (data.upiId && data.qrCodeEnabled) {
-    const upiUri = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.companyName || 'Business')}&am=${data.total}&cu=${data.currency === 'INR' ? 'INR' : 'USD'}&tn=Invoice ${data.invoiceNumber}`;
+  // Separator line above total
+  doc.setDrawColor(rgb[0],rgb[1],rgb[2]); doc.setLineWidth(0.4);
+  doc.line(TOTX-24, Y, col4, Y);
+  Y += 3;
+
+  // Total box — draw background first, then text ON TOP
+  const totalBoxY = Y - 1;
+  const totalBoxH = 10;
+  doc.setFillColor(...blend(rgb,0.1));
+  doc.roundedRect(TOTX-24, totalBoxY, col4-TOTX+24, totalBoxH, 1,1,'F');
+
+  // Draw TOTAL DUE text on top of the box
+  setFont(10,'bold');
+  doc.setTextColor(...TEXT_MID); doc.text('TOTAL DUE', TOTX-2, Y+5.5, {align:'right'});
+  doc.setTextColor(rgb[0],rgb[1],rgb[2]); doc.text(formatCurrency(data.total, data.currency), col4, Y+5.5, {align:'right'});
+  Y += totalBoxH + 3;
+
+  // ─── NOTES ───────────────────────────────────────────────────────────────────
+  if (data.notes||data.paymentInstructions) {
+    Y += 6;
+    hRule(Y);
+    Y += 5;
+    setFont(7,'bold'); doc.setTextColor(...TEXT_MUTE); doc.text('NOTES & TERMS', contentX, Y); Y+=4;
+    setFont(8); doc.setTextColor(...TEXT_MID);
+    const nl = doc.splitTextToSize(data.notes||data.paymentInstructions||'', contentW);
+    doc.text(nl, contentX, Y); Y += nl.length*4.5;
+  }
+
+  // ─── QR CODE ─────────────────────────────────────────────────────────────────
+  if (data.upiId&&data.qrCodeEnabled) {
+    const uri = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.companyName||'')}&am=${data.total}&cu=INR&tn=Invoice ${data.invoiceNumber}`;
     try {
-      const qrDataUrl = await QRCode.toDataURL(upiUri, {
-        margin: 1,
-        width: 100,
-        color: {
-          dark: isDark ? '#ffffff' : '#000000',
-          light: isDark ? '#1e293b' : '#ffffff',
-        }
-      });
-      // Place QR code in bottom left if there's room, otherwise on a new page or shifted
-      const qrSize = 35;
-      const qrY = pageHeight - 50; // Above footer
-      doc.addImage(qrDataUrl, 'PNG', margin, qrY, qrSize, qrSize);
-      doc.setFontSize(7);
-      doc.setTextColor(isDark ? 200 : 150, isDark ? 200 : 150, isDark ? 200 : 150);
-      doc.text("Scan to Pay with UPI", margin, qrY + qrSize + 4);
-    } catch (e) {
-      console.error('QR Generation failed:', e);
-    }
+      const qrUrl = await QRCode.toDataURL(uri,{margin:1,width:100,color:{dark:isDark?'#fff':'#000',light:isDark?'#0f172a':'#fff'}});
+      const qrY = Y+6;
+      doc.addImage(qrUrl,'PNG',contentX,qrY,28,28);
+      setFont(6.5); doc.setTextColor(...TEXT_MUTE); doc.text('SCAN TO PAY', contentX+14, qrY+30, {align:'center'});
+      Y = qrY+34;
+    } catch(e){ console.error(e); }
   }
 
-  // NOTES & SIGNATURE
-  cursorY += 10;
-  if (data.notes || data.paymentInstructions) {
-    doc.setFontSize(8);
-    doc.setTextColor(isDark ? 200 : 100, isDark ? 200 : 100, isDark ? 200 : 100);
-    doc.setFont(font, 'bold');
-    doc.text("TERMS & NOTES", margin, cursorY);
-    doc.setFont(font, 'normal');
-    const notesText = doc.splitTextToSize(data.notes || data.paymentInstructions || '', 100);
-    doc.text(notesText, margin, cursorY + 5);
-  }
+  // ─── FOOTER ──────────────────────────────────────────────────────────────────
+  const footerY = PH - 18;
+  // Signature line (right side)
+  doc.setDrawColor(...TEXT_MUTE); doc.setLineWidth(0.2);
+  doc.line(PW-MR-52, footerY-6, PW-MR, footerY-6);
+  setFont(7); doc.setTextColor(...TEXT_MUTE);
+  doc.text('AUTHORIZED SIGNATURE', PW-MR-52, footerY-2);
+  doc.text(data.companyName||'', PW-MR-52, footerY+2);
 
-  // Signature line
-  const sigY = pageHeight - 40;
-  doc.setDrawColor(isDark ? 200 : 100, isDark ? 200 : 100, isDark ? 200 : 100);
-  doc.line(pageWidth - margin - 50, sigY, pageWidth - margin, sigY);
-  doc.setFontSize(7);
-  doc.text("AUTHORIZED SIGNATURE", pageWidth - margin - 50, sigY + 5);
+  // Footer bar
+  doc.setFillColor(...blend(rgb, isDark?0.15:0.06));
+  doc.rect(0, footerY+6, PW, 12, 'F');
+  setFont(7); doc.setTextColor(...TEXT_MUTE);
+  doc.text(`${data.companyName||"Yuvr's Invoice"} • Thank you for your business!`, PW/2, footerY+12, {align:'center'});
+  setFont(6.5); doc.text(`Invoice ${data.invoiceNumber||''} • Generated via Yuvr's Invoice`, PW/2, footerY+17, {align:'center'});
 
-  // FOOTER
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  doc.text(`Generated by Yuvr-SaaS • ${data.companyName || 'Corporate Invoicing'}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-  
   if (returnBase64) {
-    const dataUri = doc.output('datauristring') as string;
-    return dataUri.split(',')[1];
+    return (doc.output('datauristring') as string).split(',')[1];
   } else {
-    doc.save(`${data.invoiceNumber}.pdf`);
+    doc.save(`invoice-${data.invoiceNumber||'download'}.pdf`);
   }
 };

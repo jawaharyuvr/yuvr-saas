@@ -58,7 +58,7 @@ export default function ContactUs() {
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 mb-1">{t('contact.email_support')}</h3>
                   <p className="text-slate-500 text-sm mb-2">{t('contact.email_desc')}</p>
-                  <a href="mailto:jawaharyuvr@gmail.com?subject=Inquiry from YUVR SaaS" className="text-indigo-600 font-bold hover:underline">
+                  <a href="mailto:jawaharyuvr@gmail.com?subject=Inquiry from Yuvr's" className="text-indigo-600 font-bold hover:underline">
                     {t('contact.contact_btn')}
                   </a>
                 </div>
