@@ -10,7 +10,9 @@ import { formatCurrency, formatDate } from '@/utils/format';
 import { generateInvoicePDF } from '@/utils/pdf';
 import { getTaxRateForRegion } from '@/utils/tax';
 import { Modal } from '@/components/ui/Modal';
-import { CURRENCIES } from '@/utils/constants';
+import { CURRENCIES, convertAmount } from '@/utils/constants';
+import { getLiveRate } from '@/utils/rateSync';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface Client {
   id: string;
@@ -26,6 +28,7 @@ interface Product {
   id: string;
   name: string;
   unit_price: number;
+  currency: string;
   current_stock: number;
 }
 
@@ -38,6 +41,7 @@ interface InvoiceItem {
 }
 
 export default function InvoiceForm() {
+  const { t } = useTranslation();
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [clientId, setClientId] = useState('');
@@ -86,7 +90,7 @@ export default function InvoiceForm() {
   };
 
   const fetchProducts = async () => {
-    const { data } = await supabase.from('products').select('id, name, unit_price, current_stock');
+    const { data } = await supabase.from('products').select('id, name, unit_price, current_stock, currency');
     if (data) setProducts(data);
   };
 
@@ -138,7 +142,8 @@ export default function InvoiceForm() {
           const product = products.find(p => p.id === value);
           if (product) {
             updated.description = product.name;
-            updated.price = product.unit_price;
+            // Convert price from product's currency to invoice's currency
+            updated.price = convertAmount(product.unit_price, product.currency || 'USD', currency);
           }
         }
         return updated;
@@ -160,9 +165,21 @@ export default function InvoiceForm() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Fetch the LIVE rate at the moment of creation for historical accuracy
+      const liveRate = await getLiveRate('USD', currency);
+
       const { data: invoice, error: invoiceError } = await supabase.from('invoices').insert([{
-        user_id: user.id, client_id: clientId, invoice_number: invoiceNumber, due_date: dueDate, tax_rate: taxRate, total_amount: total, currency, status: 'unpaid'
+        user_id: user.id, 
+        client_id: clientId, 
+        invoice_number: invoiceNumber, 
+        due_date: dueDate, 
+        tax_rate: taxRate, 
+        total_amount: total, 
+        currency, 
+        exchange_rate: liveRate, // Storing historical rate
+        status: 'unpaid'
       }]).select().single();
+      
       if (invoiceError) throw invoiceError;
 
       const { error: itemsError } = await supabase.from('invoice_items').insert(items.map(item => ({
@@ -170,14 +187,14 @@ export default function InvoiceForm() {
       })));
       if (itemsError) throw itemsError;
 
-      // 3. Deduct Stock
+      // Deduct Stock
       for (const item of items) {
         if (item.product_id) {
           await supabase.rpc('decrement_stock', { p_id: item.product_id, p_qty: item.quantity });
         }
       }
 
-      alert('Invoice saved successfully!');
+      alert('Invoice saved successfully! Exchange rate for this invoice is locked.');
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -202,18 +219,18 @@ export default function InvoiceForm() {
       <div className="lg:col-span-2 space-y-6">
         <Card>
           <CardContent className="p-6 grid grid-cols-2 gap-4">
-             <div className="space-y-1.5 col-span-2 md:col-span-1">
-                <label className="text-sm font-medium text-slate-700">Client</label>
+              <div className="space-y-1.5 col-span-2 md:col-span-1">
+                <label className="text-sm font-medium text-slate-700">{t('sidebar.clients')}</label>
                 <select ref={clientIdRef} className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                  <option value="">Select a client</option>
+                  <option value="">{t('invoices.selectClient') || 'Select a client'}</option>
                   {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-             </div>
-             <Input label="Invoice Number" ref={invoiceNumberRef} value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
-             <Input label="Due Date" type="date" ref={dueDateRef} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-             <Input label="Tax Rate (%)" type="number" ref={taxRateRef} value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))} />
+              </div>
+             <Input label={t('sidebar.invoices')} ref={invoiceNumberRef} value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
+             <Input label={t('common.date')} type="date" ref={dueDateRef} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+             <Input label={`${t('invoices.taxRate') || 'Tax Rate'} (%)`} type="number" ref={taxRateRef} value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))} />
              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Currency</label>
+                <label className="text-sm font-medium text-slate-700">{t('common.currency') || 'Currency'}</label>
                 <select ref={currencyRef} className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={currency} onChange={(e) => setCurrency(e.target.value)}>
                   {CURRENCIES.map(curr => <option key={curr.code} value={curr.code}>{curr.symbol} - {curr.name}</option>)}
                 </select>
@@ -225,18 +242,18 @@ export default function InvoiceForm() {
           <CardContent className="p-0">
             <div className="p-4 border-b flex justify-between items-center bg-slate-50">
                <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                 <Package size={16} /> Line Items
+                 <Package size={16} /> {t('invoices.lineItems') || 'Line Items'}
                </h2>
-               <Button variant="outline" size="sm" onClick={addItem} className="h-8 text-[10px] font-bold uppercase">Add Item</Button>
+               <Button variant="outline" size="sm" onClick={addItem} className="h-8 text-[10px] font-bold uppercase">{t('invoices.addItem') || 'Add Item'}</Button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 text-slate-400 text-[9px] uppercase tracking-widest font-black">
                   <tr>
-                    <th className="px-6 py-3">Item / Product</th>
-                    <th className="px-6 py-3 w-20">Qty</th>
-                    <th className="px-6 py-3 w-32 text-right">Price</th>
-                    <th className="px-6 py-3 w-32 text-right">Total</th>
+                    <th className="px-6 py-3">{t('invoices.itemProduct') || 'Item / Product'}</th>
+                    <th className="px-6 py-3 w-20">{t('invoices.qty') || 'Qty'}</th>
+                    <th className="px-6 py-3 w-32 text-right">{t('invoices.price') || 'Price'}</th>
+                    <th className="px-6 py-3 w-32 text-right">{t('invoices.total') || 'Total'}</th>
                     <th className="px-6 py-3 w-12"></th>
                   </tr>
                 </thead>
@@ -255,7 +272,7 @@ export default function InvoiceForm() {
                             </select>
                             <input 
                               className="text-sm bg-transparent border-none focus:ring-0 p-0 w-full placeholder:text-slate-300" 
-                              placeholder="Description..." 
+                              placeholder={t('common.description') || 'Description...'} 
                               value={item.description} 
                               onChange={(e) => updateItem(item.id, 'description', e.target.value)} 
                             />
@@ -277,27 +294,27 @@ export default function InvoiceForm() {
       <div className="space-y-6">
         <Card className="sticky top-6">
            <CardContent className="p-6 space-y-4">
-              <h2 className="text-sm font-black uppercase tracking-widest text-slate-500 border-b pb-4">Invoice Summary</h2>
+              <h2 className="text-sm font-black uppercase tracking-widest text-slate-500 border-b pb-4">{t('invoices.summary') || 'Invoice Summary'}</h2>
               <div className="space-y-3">
-                 <div className="flex justify-between text-sm"><span className="text-slate-500">Subtotal</span><span className="font-bold text-slate-900">{formatCurrency(subtotal, currency)}</span></div>
-                 <div className="flex justify-between text-sm"><span className="text-slate-500">Tax ({taxRate}%)</span><span className="font-bold text-slate-900">{formatCurrency(taxAmount, currency)}</span></div>
-                 <div className="pt-4 border-t flex justify-between items-center"><span className="text-xs font-black uppercase text-slate-400">Total</span><span className="text-2xl font-black text-indigo-600">{formatCurrency(total, currency)}</span></div>
+                 <div className="flex justify-between text-sm"><span className="text-slate-500">{t('invoices.subtotal') || 'Subtotal'}</span><span className="font-bold text-slate-900">{formatCurrency(subtotal, currency)}</span></div>
+                 <div className="flex justify-between text-sm"><span className="text-slate-500">{t('invoices.tax') || 'Tax'} ({taxRate}%)</span><span className="font-bold text-slate-900">{formatCurrency(taxAmount, currency)}</span></div>
+                 <div className="pt-4 border-t flex justify-between items-center"><span className="text-xs font-black uppercase text-slate-400">{t('invoices.total') || 'Total'}</span><span className="text-2xl font-black text-indigo-600">{formatCurrency(total, currency)}</span></div>
               </div>
               <div className="pt-6 space-y-3">
-                 <Button className="w-full h-12 text-sm font-bold uppercase tracking-widest shadow-lg shadow-indigo-200" onClick={handleSave} isLoading={loading}>Save Invoice</Button>
+                 <Button className="w-full h-12 text-sm font-bold uppercase tracking-widest shadow-lg shadow-indigo-200" onClick={handleSave} isLoading={loading}>{t('invoices.saveInvoice') || 'Save Invoice'}</Button>
                  <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" onClick={handleDownload} className="text-[10px] font-black uppercase">PDF</Button>
-                    <Button variant="outline" onClick={() => setIsEmailModalOpen(true)} className="text-[10px] font-black uppercase">Email</Button>
+                    <Button variant="outline" onClick={handleDownload} className="text-[10px] font-black uppercase">{t('invoices.pdf') || 'PDF'}</Button>
+                    <Button variant="outline" onClick={() => setIsEmailModalOpen(true)} className="text-[10px] font-black uppercase">{t('invoices.email') || 'Email'}</Button>
                  </div>
               </div>
            </CardContent>
         </Card>
       </div>
 
-      <Modal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} title="Send via Email">
+      <Modal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} title={t('invoices.sendEmail')}>
          <div className="p-6 space-y-4">
-            <Input label="Recipient" value={emailTo} onChange={(e) => setEmailTo(e.target.value)} />
-            <Button className="w-full" onClick={() => alert('Email system integration recommended in separate task.')}>Send Now</Button>
+            <Input label={t('invoices.recipient')} value={emailTo} onChange={(e) => setEmailTo(e.target.value)} />
+            <Button className="w-full" onClick={() => alert(t('invoices.emailSystemFeature'))}>{t('invoices.sendNow')}</Button>
          </div>
       </Modal>
     </div>

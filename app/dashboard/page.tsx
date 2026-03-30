@@ -26,6 +26,9 @@ import { CURRENCIES, convertAmount } from '@/utils/constants';
 import { generateInvoicePDF } from '@/utils/pdf';
 import { Modal } from '@/components/ui/Modal';
 import { formatDate } from '@/utils/format';
+import { useTranslation } from '@/contexts/LanguageContext';
+
+import { getLiveRate, syncExchangeRates } from '@/utils/rateSync';
 
 interface DashboardStats {
   totalInvoices: number;
@@ -39,6 +42,7 @@ interface RecentInvoice {
   invoice_number: string;
   total_amount: number;
   currency: string;
+  exchange_rate?: number;
   status: string;
   due_date: string;
   clients: { name: string; email: string; address?: string } | null;
@@ -47,6 +51,7 @@ interface RecentInvoice {
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [statsData, setStatsData] = useState<DashboardStats>({
     totalInvoices: 0,
@@ -84,6 +89,8 @@ export default function DashboardPage() {
   const [isSavingUsername, setIsSavingUsername] = useState(false);
 
   useEffect(() => {
+    // Initial sync of exchange rates
+    syncExchangeRates();
     fetchDashboardData();
   }, [dashboardCurrency]);
 
@@ -93,8 +100,7 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch Profile for Logo/Branding/UPI
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
@@ -109,23 +115,36 @@ export default function DashboardPage() {
 
       const { data: invoices, error: invError } = await supabase
         .from('invoices')
-        .select('total_amount, currency, status, invoice_number, id, due_date, tax_rate, created_at, clients(name, email, address)')
+        .select('total_amount, currency, exchange_rate, status, invoice_number, id, due_date, tax_rate, created_at, clients(name, email, address)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (invError) throw invError;
 
       if (invoices) {
+        // Fetch LIVE rates for target conversion
+        const targetRate = await getLiveRate('USD', dashboardCurrency);
+
+        const calculateEquivalence = (amount: number, fromCurr: string, storedRate?: number) => {
+           let amountInUSD = 0;
+           if (storedRate && Number(storedRate) > 0) {
+             amountInUSD = amount / Number(storedRate);
+           } else {
+             amountInUSD = convertAmount(amount, fromCurr, 'USD');
+           }
+           return amountInUSD * targetRate;
+        };
+
         const stats: DashboardStats = {
           totalInvoices: invoices.length,
           paidInvoicesAmount: invoices
             .filter(inv => inv.status === 'paid')
-            .reduce((sum, inv) => sum + convertAmount(Number(inv.total_amount) || 0, inv.currency || 'USD', dashboardCurrency), 0),
+            .reduce((sum, inv) => sum + calculateEquivalence(Number(inv.total_amount) || 0, inv.currency || 'USD', inv.exchange_rate), 0),
           unpaidInvoicesAmount: invoices
             .filter(inv => inv.status === 'unpaid')
-            .reduce((sum, inv) => sum + convertAmount(Number(inv.total_amount) || 0, inv.currency || 'USD', dashboardCurrency), 0),
+            .reduce((sum, inv) => sum + calculateEquivalence(Number(inv.total_amount) || 0, inv.currency || 'USD', inv.exchange_rate), 0),
           totalRevenue: invoices
-            .reduce((sum, inv) => sum + convertAmount(Number(inv.total_amount) || 0, inv.currency || 'USD', dashboardCurrency), 0),
+            .reduce((sum, inv) => sum + calculateEquivalence(Number(inv.total_amount) || 0, inv.currency || 'USD', inv.exchange_rate), 0),
         };
         setStatsData(stats);
         setRecentInvoices(invoices.slice(0, 5) as any);
@@ -159,7 +178,7 @@ export default function DashboardPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this invoice?')) return;
+    if (!confirm(t('invoices.deleteConfirm') || 'Are you sure you want to delete this invoice?')) return;
     const { error } = await supabase
       .from('invoices')
       .delete()
@@ -331,20 +350,19 @@ export default function DashboardPage() {
   };
 
   const statCards = [
-    { label: 'Total Invoices', value: statsData.totalInvoices.toString(), icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Paid Invoices', value: formatCurrency(statsData.paidInvoicesAmount, dashboardCurrency), icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Unpaid Invoices', value: formatCurrency(statsData.unpaidInvoicesAmount, dashboardCurrency), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { label: 'Total Revenue', value: formatCurrency(statsData.totalRevenue, dashboardCurrency), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { label: t('sidebar.invoices'), value: statsData.totalInvoices.toString(), icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: t('dashboard.paidInvoices'), value: formatCurrency(statsData.paidInvoicesAmount, dashboardCurrency), icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: t('dashboard.pendingInvoices'), value: formatCurrency(statsData.unpaidInvoicesAmount, dashboardCurrency), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: t('dashboard.totalRevenue'), value: formatCurrency(statsData.totalRevenue, dashboardCurrency), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
   ];
 
   return (
     <div className="space-y-8">
-      {/* ... UI content ... */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{t('sidebar.dashboard')}</h1>
           <p className="text-slate-500 text-sm">
-            Welcome back{userProfile?.username ? `, ${userProfile.username}` : ''}
+            {t('dashboard.welcome')}{userProfile?.username ? `, ${userProfile.username}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -363,7 +381,7 @@ export default function DashboardPage() {
           <Link href="/dashboard/invoices/new">
             <Button className="flex items-center gap-2">
               <Plus size={18} />
-              Create Invoice
+              {t('invoices.newInvoice')}
             </Button>
           </Link>
         </div>
@@ -391,9 +409,9 @@ export default function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardContent className="p-0">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Recent Invoices</h2>
+              <h2 className="text-lg font-semibold text-slate-900">{t('dashboard.recentInvoices')}</h2>
               <Link href="/dashboard/invoices" className="text-sm text-indigo-600 font-medium hover:underline">
-                View all
+                {t('common.viewAll')}
               </Link>
             </div>
             {recentInvoices.length > 0 ? (
@@ -401,11 +419,11 @@ export default function DashboardPage() {
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider sticky top-0 z-10 shadow-sm">
                     <tr>
-                      <th className="px-6 py-3 font-medium bg-slate-50 whitespace-nowrap">Invoice</th>
-                      <th className="px-6 py-3 font-medium bg-slate-50 whitespace-nowrap">Client</th>
-                      <th className="px-6 py-3 font-medium text-right bg-slate-50 whitespace-nowrap">Amount</th>
-                      <th className="px-6 py-3 font-medium text-center bg-slate-50 whitespace-nowrap">Status</th>
-                      <th className="px-6 py-3 font-medium text-right bg-slate-50 whitespace-nowrap">Actions</th>
+                      <th className="px-6 py-3 font-medium bg-slate-50 whitespace-nowrap">{t('sidebar.invoices')}</th>
+                      <th className="px-6 py-3 font-medium bg-slate-50 whitespace-nowrap">{t('sidebar.clients')}</th>
+                      <th className="px-6 py-3 font-medium text-right bg-slate-50 whitespace-nowrap">{t('invoices.amount')}</th>
+                      <th className="px-6 py-3 font-medium text-center bg-slate-50 whitespace-nowrap">{t('invoices.status')}</th>
+                      <th className="px-6 py-3 font-medium text-right bg-slate-50 whitespace-nowrap">{t('invoices.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -424,7 +442,7 @@ export default function DashboardPage() {
                             "px-2 py-1 rounded-full text-xs font-medium",
                             inv.status === 'paid' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                           )}>
-                            {inv.status}
+                            {inv.status === 'paid' ? t('invoices.paid') : t('invoices.unpaid')}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right text-slate-400 whitespace-nowrap">
@@ -458,9 +476,9 @@ export default function DashboardPage() {
                 <div className="mx-auto w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                   <FileText className="text-slate-400" size={24} />
                 </div>
-                <h3 className="text-sm font-medium text-slate-900">No invoices yet</h3>
+                <h3 className="text-sm font-medium text-slate-900">{t('invoices.noInvoices')}</h3>
                 <Link href="/dashboard/invoices/new" className="mt-4 inline-block">
-                  <Button variant="outline" size="sm">Create Invoice</Button>
+                  <Button variant="outline" size="sm">{t('invoices.newInvoice')}</Button>
                 </Link>
               </div>
             )}
@@ -470,9 +488,9 @@ export default function DashboardPage() {
         <Card className="lg:col-span-1">
           <CardContent className="p-0">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Top Clients</h2>
+              <h2 className="text-lg font-semibold text-slate-900">{t('dashboard.topClients')}</h2>
               <Link href="/dashboard/clients" className="text-sm text-indigo-600 font-medium hover:underline">
-                Manage clients
+                {t('dashboard.manageClients')}
               </Link>
             </div>
             {topClients.length > 0 ? (
@@ -480,8 +498,8 @@ export default function DashboardPage() {
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider sticky top-0 z-10 shadow-sm">
                     <tr>
-                      <th className="px-6 py-3 font-medium bg-slate-50">Client</th>
-                      <th className="px-6 py-3 font-medium bg-slate-50">Email</th>
+                      <th className="px-6 py-3 font-medium bg-slate-50">{t('sidebar.clients')}</th>
+                      <th className="px-6 py-3 font-medium bg-slate-50">{t('settings.email')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -499,9 +517,9 @@ export default function DashboardPage() {
                 <div className="mx-auto w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                   <Users className="text-slate-400" size={24} />
                 </div>
-                <h3 className="text-sm font-medium text-slate-900">No clients yet</h3>
+                <h3 className="text-sm font-medium text-slate-900">{t('dashboard.noClients')}</h3>
                 <Link href="/dashboard/clients/new" className="mt-4 inline-block">
-                  <Button variant="outline" size="sm">Add Client</Button>
+                  <Button variant="outline" size="sm">{t('dashboard.addClientBtn')}</Button>
                 </Link>
               </div>
             )}

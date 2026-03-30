@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { formatCurrency, formatDate } from '@/utils/format';
 import Link from 'next/link';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export default function EstimatesPage() {
+  const { t } = useTranslation();
   const [estimates, setEstimates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -29,7 +31,7 @@ export default function EstimatesPage() {
   };
 
   const convertToInvoice = async (estimate: any) => {
-    if (!confirm('Are you sure you want to convert this estimate to an invoice?')) return;
+    if (!confirm(t('estimates.convertConfirm') || 'Are you sure you want to convert this estimate to an invoice?')) return;
     
     try {
       // 1. Fetch estimate items
@@ -94,7 +96,7 @@ export default function EstimatesPage() {
       // 4. Update estimate status
       await supabase.from('estimates').update({ status: 'converted' }).eq('id', estimate.id);
       
-      alert('Successfully converted to invoice!');
+      alert(t('estimates.convertSuccess') || 'Successfully converted to invoice!');
       fetchEstimates();
     } catch (e: any) {
       alert(e.message);
@@ -110,12 +112,12 @@ export default function EstimatesPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Estimates & Quotes</h1>
-          <p className="text-slate-500 text-sm">Create and manage quotes for your potential clients.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('estimates.title')}</h1>
+          <p className="text-slate-500 text-sm">{t('estimates.subtitle')}</p>
         </div>
         <Link href="/dashboard/estimates/new">
           <Button className="flex items-center gap-2">
-            <Plus size={18} /> New Estimate
+            <Plus size={18} /> {t('estimates.newEstimate')}
           </Button>
         </Link>
       </div>
@@ -126,7 +128,7 @@ export default function EstimatesPage() {
             <Search size={18} className="text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search by estimate number or client..." 
+              placeholder={t('estimates.search_placeholder') || "Search by estimate number or client..."} 
               className="bg-transparent border-none focus:outline-none text-sm w-full"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -140,22 +142,22 @@ export default function EstimatesPage() {
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-4 font-medium">Estimate</th>
-                <th className="px-6 py-4 font-medium">Client</th>
-                <th className="px-6 py-4 font-medium">Amount</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium">Date</th>
+                <th className="px-6 py-4 font-medium">{t('estimates.estimate')}</th>
+                <th className="px-6 py-4 font-medium">{t('estimates.client')}</th>
+                <th className="px-6 py-4 font-medium">{t('estimates.amount')}</th>
+                <th className="px-6 py-4 font-medium">{t('estimates.status')}</th>
+                <th className="px-6 py-4 font-medium">{t('estimates.date')}</th>
                 <th className="px-6 py-4 font-medium"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 italic-last-row">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">Loading estimates...</td>
+                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">{t('estimates.loading')}</td>
                 </tr>
               ) : filteredEstimates.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">No estimates found.</td>
+                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">{t('estimates.noEstimates')}</td>
                 </tr>
               ) : (
                 filteredEstimates.map((est) => (
@@ -178,7 +180,7 @@ export default function EstimatesPage() {
                         est.status === 'draft' ? 'bg-slate-100 text-slate-700' :
                         'bg-blue-100 text-blue-700'
                       }`}>
-                        {est.status}
+                        {t(`estimates.${est.status}`) || est.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">{formatDate(est.created_at)}</td>
@@ -190,7 +192,7 @@ export default function EstimatesPage() {
                           className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                           onClick={() => convertToInvoice(est)}
                         >
-                          Convert <ArrowRight size={14} className="ml-1" />
+                          {t('estimates.convert')} <ArrowRight size={14} className="ml-1" />
                         </Button>
                       )}
                     </td>

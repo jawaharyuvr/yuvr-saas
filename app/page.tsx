@@ -5,39 +5,43 @@ import { Button } from '@/components/ui/Button';
 import { Check, ArrowRight, Shield, Zap, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { DynamicBackground } from '@/components/ui/DynamicBackground';
-
-const plans = [
-  {
-    name: 'Free',
-    price: '$0',
-    description: 'Perfect for getting started.',
-    features: ['5 Invoices per month', 'Basic PDF generation', 'Client management', 'Single user'],
-    cta: 'Start for Free',
-    href: '/signup',
-    highlighted: false
-  },
-  {
-    name: 'Pro',
-    price: '$19',
-    period: '/month',
-    description: 'Best for freelancers and small teams.',
-    features: ['Unlimited Invoices', 'Premium PDF Layouts', 'Custom Branding & Logo', 'Multiple Currencies', 'Email Support'],
-    cta: 'Go Pro',
-    href: '/signup',
-    highlighted: true
-  },
-  {
-    name: 'Enterprise',
-    price: 'Custom',
-    description: 'Advanced features for large agencies.',
-    features: ['Team Collaboration', 'API Access', 'Dedicated Account Manager', 'Custom Integrations', '24/7 Priority Support'],
-    cta: 'Contact Sales',
-    href: '/signup',
-    highlighted: false
-  }
-];
+import { useTranslation } from '@/contexts/LanguageContext';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export default function Home() {
+  const { t } = useTranslation();
+
+  const plans = [
+    {
+      name: 'Free',
+      price: '$0',
+      description: t('hero.plans.freeDesc'),
+      features: [t('hero.plans.freeF1'), t('hero.plans.freeF2'), t('hero.plans.freeF3'), t('hero.plans.freeF4')],
+      cta: t('hero.cta'),
+      href: '/signup',
+      highlighted: false
+    },
+    {
+      name: 'Pro',
+      price: '$19',
+      period: '/month',
+      description: t('hero.plans.proDesc'),
+      features: [t('hero.plans.proF1'), t('hero.plans.proF2'), t('hero.plans.proF3'), t('hero.plans.proF4'), t('hero.plans.proF5')],
+      cta: t('hero.plans.proCta'),
+      href: '/signup',
+      highlighted: true
+    },
+    {
+      name: 'Enterprise',
+      price: 'Custom',
+      description: t('hero.plans.entDesc'),
+      features: [t('hero.plans.entF1'), t('hero.plans.entF2'), t('hero.plans.entF3'), t('hero.plans.entF4'), t('hero.plans.entF5')],
+      cta: t('hero.plans.entCta'),
+      href: '/signup',
+      highlighted: false
+    }
+  ];
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -63,9 +67,9 @@ export default function Home() {
     visible: { opacity: 1, y: 0, rotateX: 0, transition: { type: "spring" as const, stiffness: 200, damping: 20 } }
   };
 
-  const titleText1 = "Professional Invoicing".split(" ");
-  const titleText2 = "Made Simple.".split(" ");
-  const paragraphWords = "Generate, manage and track your invoices with ease. Professional PDF generation, client management, and automated tracking all in one place.".split(" ");
+  const titleText1 = t('hero.title1').split(" ");
+  const titleText2 = t('hero.title2').split(" ");
+  const paragraphWords = t('hero.subtitle').split(" ");
 
   return (
     <main className="min-h-screen bg-transparent overflow-hidden relative">
@@ -75,7 +79,7 @@ export default function Home() {
       <motion.nav
         animate={{ y: [0, -4, 0] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-        className="relative z-10 bg-white/70 backdrop-blur-xl border border-white/50 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto rounded-b-3xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/20 transition-all duration-500"
+        className="relative z-20 bg-white/70 backdrop-blur-xl border border-white/50 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto rounded-b-3xl shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/20 transition-all duration-500"
       >
         <motion.h1
           initial={{ opacity: 0, x: -20 }}
@@ -98,11 +102,12 @@ export default function Home() {
           animate={{ opacity: 1, x: 0 }}
           className="flex gap-4 items-center"
         >
+          <LanguageSwitcher className="hidden sm:flex" />
           <Link href="/login">
-            <Button variant="ghost" className="hover:bg-indigo-50 hover:text-indigo-600 transition-colors">Log in</Button>
+            <Button variant="ghost" className="hover:bg-indigo-50 hover:text-indigo-600 transition-colors">{t('auth.login')}</Button>
           </Link>
           <Link href="/signup">
-            <Button className="bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-0.5 transition-all">Get Started</Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-0.5 transition-all">{t('auth.signup')}</Button>
           </Link>
         </motion.div>
       </motion.nav>
@@ -158,8 +163,8 @@ export default function Home() {
             <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100 flex items-center justify-center mb-6 shadow-sm">
               <FileText size={28} />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-3">Smart Templates</h3>
-            <p className="text-slate-600 text-center leading-relaxed">Professional templates that adapt to your brand automatically.</p>
+            <h3 className="text-xl font-bold text-slate-900 mb-3">{t('hero.templates')}</h3>
+            <p className="text-slate-600 text-center leading-relaxed">{t('hero.templatesDesc')}</p>
           </motion.div>
 
           <motion.div
@@ -169,8 +174,8 @@ export default function Home() {
             <div className="w-14 h-14 bg-fuchsia-50 text-fuchsia-600 rounded-2xl border border-fuchsia-100 flex items-center justify-center mb-6 shadow-sm">
               <Zap size={28} />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-3">Instant Generation</h3>
-            <p className="text-slate-600 text-center leading-relaxed">Create and send invoices in seconds, not hours.</p>
+            <h3 className="text-xl font-bold text-slate-900 mb-3">{t('hero.instant')}</h3>
+            <p className="text-slate-600 text-center leading-relaxed">{t('hero.instantDesc')}</p>
           </motion.div>
 
           <motion.div
@@ -180,21 +185,21 @@ export default function Home() {
             <div className="w-14 h-14 bg-cyan-50 text-cyan-600 rounded-2xl border border-cyan-100 flex items-center justify-center mb-6 shadow-sm">
               <Shield size={28} />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-3">Secure Tracking</h3>
-            <p className="text-slate-600 text-center leading-relaxed">Never lose track of a payment with secure cloud storage.</p>
+            <h3 className="text-xl font-bold text-slate-900 mb-3">{t('hero.secure')}</h3>
+            <p className="text-slate-600 text-center leading-relaxed">{t('hero.secureDesc')}</p>
           </motion.div>
         </div>
 
-        <motion.div variants={itemVariants} className="mt-10 flex items-center justify-center gap-x-6">
+        <motion.div variants={itemVariants} className="mt-10 flex items-center justify-center gap-x-6 relative z-30">
           <Link href="/signup">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button size="lg" className="px-10 py-6 text-lg bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-600/20">
-                Start for Free
+                {t('hero.cta')}
               </Button>
             </motion.div>
           </Link>
           <Link href="/pricing" className="text-sm font-semibold leading-6 text-slate-900 hover:text-indigo-600 transition-colors">
-            Subscription Plan <span aria-hidden="true">→</span>
+            {t('hero.pricing')} <span aria-hidden="true">→</span>
           </Link>
         </motion.div>
       </motion.div>
@@ -205,11 +210,11 @@ export default function Home() {
         className="relative z-10 border-t border-slate-200/50 bg-white/50 backdrop-blur-md py-12"
       >
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
-          <p className="text-slate-400 text-sm">© 2026 Yuvr's. All rights reserved.</p>
-          <div className="flex gap-8 text-sm text-slate-500">
-            <Link href="#" className="hover:text-indigo-600 transition-colors">Privacy Policy</Link>
-            <Link href="#" className="hover:text-indigo-600 transition-colors">Terms of Service</Link>
-            <Link href="#" className="hover:text-indigo-600 transition-colors">Contact</Link>
+          <p className="text-slate-400 text-sm">© 2026 Yuvr's. {t('legal.rights')}</p>
+          <div className="flex gap-8 text-sm text-slate-500 font-medium">
+            <Link href="/privacy" className="hover:text-indigo-600 transition-colors">{t('legal.privacy')}</Link>
+            <Link href="/terms" className="hover:text-indigo-600 transition-colors">{t('legal.terms')}</Link>
+            <Link href="/contact" className="hover:text-indigo-600 transition-colors">{t('contact.title')}</Link>
           </div>
         </div>
       </motion.footer>

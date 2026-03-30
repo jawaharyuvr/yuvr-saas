@@ -4,8 +4,10 @@ import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { motion } from 'framer-motion';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export default function PricingPage() {
+  const { t } = useTranslation();
   return (
     <main className="min-h-screen bg-slate-50 py-12 px-6">
       <div className="max-w-7xl mx-auto">
@@ -25,24 +27,24 @@ export default function PricingPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
             </span>
-            Currently In Development
+            {t('hero.pricing.inDevelopment')}
           </motion.div>
 
           <h1 className="text-5xl md:text-7xl font-extrabold text-slate-900 tracking-tight mb-8">
-            Subscription Plans <br />
+            {t('hero.pricing.subscriptionPlans')} <br />
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-fuchsia-600 to-indigo-600">
-              Coming Soon
+              {t('hero.pricing.comingSoon')}
             </span>
           </h1>
 
           <p className="text-slate-500 text-xl leading-relaxed mb-12">
-            We are actively crafting the perfect billing tiers to support freelancers, agencies, and enterprises with world-class features. Stay tuned for our official rollout!
+            {t('hero.pricing.desc')}
           </p>
 
           <div className="flex justify-center gap-4">
             <Link href="/dashboard">
               <Button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-8 py-6 shadow-xl shadow-indigo-600/20 transition-all hover:-translate-y-1">
-                Back to Dashboard
+                {t('hero.pricing.backBtn')}
               </Button>
             </Link>
           </div>

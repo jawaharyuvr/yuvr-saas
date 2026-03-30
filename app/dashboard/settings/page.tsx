@@ -4,12 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { User, Bell, Shield, Palette, Save, Upload, Image as ImageIcon, LogOut, CreditCard } from 'lucide-react';
+import { User, Bell, Shield, Palette, Save, Upload, Image as ImageIcon, LogOut, CreditCard, LifeBuoy } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { clearLocalSession } from '@/lib/sessionManager';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export default function SettingsPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
@@ -93,7 +95,7 @@ export default function SettingsPage() {
         });
 
       if (error) throw error;
-      alert('Settings updated successfully!');
+      alert(t('settings.successUpdate') || 'Settings updated successfully!');
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -117,7 +119,7 @@ export default function SettingsPage() {
       if (error) throw error;
       
       setProfile({ ...profile, api_key: newKey });
-      alert('New API Key generated successfully!');
+      alert(t('settings.successKey') || 'New API Key generated successfully!');
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -127,17 +129,17 @@ export default function SettingsPage() {
 
   const handleChangePassword = async () => {
     if (!passwords.current || !passwords.new) {
-      alert('Please fill in both current and new passwords');
+      alert(t('settings.errorPasswordFill') || 'Please fill in both current and new passwords');
       return;
     }
 
     if (passwords.new !== passwords.confirm) {
-      alert('New passwords do not match');
+      alert(t('settings.errorPasswordMatch') || 'New passwords do not match');
       return;
     }
 
     if (passwords.new.length < 6) {
-      alert('New password must be at least 6 characters');
+      alert(t('settings.errorPasswordShort') || 'New password must be at least 6 characters');
       return;
     }
 
@@ -153,7 +155,7 @@ export default function SettingsPage() {
       });
 
       if (signInError) {
-        throw new Error('Current password is incorrect');
+        throw new Error(t('auth.invalidCredentials') || 'Current password is incorrect');
       }
 
       // 2. Update to new password
@@ -163,7 +165,7 @@ export default function SettingsPage() {
 
       if (updateError) throw updateError;
 
-      alert('Password updated successfully! You will be signed out from all devices for security.');
+      alert(t('settings.successPassword') || 'Password updated successfully! You will be signed out from all devices for security.');
       
       // 3. Global Logout
       await supabase.auth.signOut({ scope: 'global' });
@@ -188,18 +190,19 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'branding', label: 'Branding', icon: Palette },
-    { id: 'payment', label: 'Payment', icon: CreditCard },
-    { id: 'api', label: 'API Access', icon: Shield },
-    { id: 'security', label: 'Security', icon: Shield },
+    { id: 'profile', label: t('settings.profile'), icon: User },
+    { id: 'branding', label: t('settings.branding'), icon: Palette },
+    { id: 'payment', label: t('settings.payment'), icon: CreditCard },
+    { id: 'api', label: t('settings.api'), icon: Shield },
+    { id: 'security', label: t('settings.security'), icon: Shield },
+    { id: 'support', label: t('settings.support'), icon: LifeBuoy },
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-        <p className="text-slate-500 text-sm">Manage your profile and account preferences.</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t('settings.title')}</h1>
+        <p className="text-slate-500 text-sm">{t('settings.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -226,34 +229,34 @@ export default function SettingsPage() {
           <CardContent className="p-6 space-y-6">
             {activeTab === 'profile' && (
               <>
-                <h2 className="text-lg font-bold text-slate-900 border-b pb-4">Profile Information</h2>
+                <h2 className="text-lg font-bold text-slate-900 border-b pb-4">{t('settings.profileInfo')}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Input 
-                    label="Full Name" 
+                    label={t('settings.fullName')} 
                     placeholder="John Doe" 
                     value={profile.full_name}
                     onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
                   />
                   <Input 
-                    label="Email Address" 
+                    label={t('settings.email')} 
                     placeholder="you@example.com" 
                     value={profile.email} 
                     disabled 
                   />
                   <Input 
-                    label="Username" 
+                    label={t('auth.username')} 
                     placeholder="username" 
                     value={profile.username} 
                     disabled 
                   />
                   <Input 
-                    label="Company Name" 
+                    label={t('settings.companyName')} 
                     placeholder="Your Company" 
                     value={profile.company_name}
                     onChange={(e) => setProfile({ ...profile, company_name: e.target.value })}
                   />
                   <Input 
-                    label="Phone Number" 
+                    label={t('settings.phone')} 
                     placeholder="+1 (555) 000-0000" 
                     value={profile.phone}
                     onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
@@ -261,18 +264,18 @@ export default function SettingsPage() {
                 </div>
                 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Bio</label>
+                  <label className="text-sm font-medium text-slate-700">{t('settings.bio')}</label>
                   <textarea 
                     className="flex min-h-[100px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Tell us a little about yourself..."
+                    placeholder={t('settings.bioPlaceholder')}
                     value={profile.bio}
                     onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
                   />
                 </div>
 
-                <div className="pt-4 flex justify-end">
+                <div className="pt-4 flex justify-start">
                   <Button onClick={handleSaveProfile} isLoading={loading}>
-                    <Save size={18} className="mr-2" /> Save Changes
+                    <Save size={18} className="mr-2" /> {t('common.save')}
                   </Button>
                 </div>
               </>
@@ -280,17 +283,17 @@ export default function SettingsPage() {
 
             {activeTab === 'branding' && (
               <>
-                <h2 className="text-lg font-bold text-slate-900 border-b pb-4">Custom Branding</h2>
+                <h2 className="text-lg font-bold text-slate-900 border-b pb-4">{t('settings.customBranding')}</h2>
                 <div className="space-y-8">
                   <div className="space-y-4">
-                    <label className="text-sm font-medium text-slate-700">Company Logo</label>
+                    <label className="text-sm font-medium text-slate-700">{t('settings.companyLogo')}</label>
                     <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer relative">
                       {profile.logo_url ? (
                         <div className="relative group/logo">
                           <img src={profile.logo_url} alt="Company Logo" className="max-h-32 rounded-lg shadow-sm" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/logo:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
                             <Button variant="outline" className="bg-white border-none text-slate-900" size="sm" onClick={() => setProfile({ ...profile, logo_url: '' })}>
-                              Remove
+                              {t('common.delete')}
                             </Button>
                           </div>
                         </div>
@@ -299,8 +302,8 @@ export default function SettingsPage() {
                           <div className="mx-auto w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3">
                             <ImageIcon size={24} className="text-slate-400" />
                           </div>
-                          <p className="text-sm font-medium text-slate-700">Upload Company Logo</p>
-                          <p className="text-xs text-slate-500 mt-1">PNG, JPG or SVG (max. 1MB)</p>
+                          <p className="text-sm font-medium text-slate-700">{t('settings.uploadLogo')}</p>
+                          <p className="text-xs text-slate-500 mt-1">{t('settings.pngJpgMax')}</p>
                         </div>
                       )}
                       <input 
@@ -315,7 +318,7 @@ export default function SettingsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                      <label className="text-sm font-medium text-slate-700">Brand Color</label>
+                      <label className="text-sm font-medium text-slate-700">{t('settings.brandColor')}</label>
                       <div className="flex items-center gap-4 p-4 border rounded-lg">
                         <input 
                           type="color" 
@@ -328,7 +331,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-sm font-medium text-slate-700">Default Font</label>
+                      <label className="text-sm font-medium text-slate-700">{t('settings.defaultFont')}</label>
                       <select 
                         className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         value={profile.custom_font}
@@ -342,19 +345,19 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <label className="text-sm font-medium text-slate-700">Invoice Template</label>
+                    <label className="text-sm font-medium text-slate-700">{t('settings.invoiceTemplate')}</label>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
                       {[
-                        { id: 'professional_business', name: 'Professional' },
-                        { id: 'minimal_corporate', name: 'Corporate' },
-                        { id: 'elegant_luxury', name: 'Luxury' },
-                        { id: 'creative_agency', name: 'Agency' },
-                        { id: 'tech_startup', name: 'Startup' },
-                        { id: 'dark_mode', name: 'Dark Mode' },
-                        { id: 'colorful_freelancer', name: 'Freelancer' },
-                        { id: 'scandinavian_minimal', name: 'Scandinavian' },
-                        { id: 'bold_modern', name: 'Bold' },
-                        { id: 'premium_finance', name: 'Finance' }
+                        { id: 'professional_business', name: t('settings.profTemplate') },
+                        { id: 'minimal_corporate', name: t('settings.modTemplate') },
+                        { id: 'elegant_luxury', name: t('settings.eleTemplate') },
+                        { id: 'creative_agency', name: t('settings.modTemplate') },
+                        { id: 'tech_startup', name: t('settings.modTemplate') },
+                        { id: 'dark_mode', name: t('settings.modTemplate') },
+                        { id: 'colorful_freelancer', name: t('settings.modTemplate') },
+                        { id: 'scandinavian_minimal', name: t('settings.modTemplate') },
+                        { id: 'bold_modern', name: t('settings.modTemplate') },
+                        { id: 'premium_finance', name: t('settings.modTemplate') }
                       ].map(tmp => (
                         <button
                           key={tmp.id}
@@ -422,10 +425,10 @@ export default function SettingsPage() {
                 {/* Visual Preview Card */}
                 <div className="space-y-4 pt-6 mt-6 border-t border-slate-100">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-widest">Live Preview</h3>
+                    <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-widest">{t('settings.livePreview')}</h3>
                     <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                       REAL-TIME SYNC
+                       {t('settings.realTimeSync') || 'REAL-TIME SYNC'}
                     </div>
                   </div>
                   
@@ -469,7 +472,7 @@ export default function SettingsPage() {
                                profile.invoice_template === 'elegant_luxury' ? 'tracking-[0.2em] text-slate-800' : 'text-slate-900'
                              }`} style={{ 
                                color: (profile.invoice_template === 'bold_modern' || profile.invoice_template === 'creative_agency') ? profile.brand_color : undefined 
-                             }}>INVOICE</h4>
+                             }}>{t('sidebar.invoices').toUpperCase()}</h4>
                              <p className="text-slate-400 font-bold mt-1 uppercase tracking-tighter">#{profile.invoice_template === 'dark_mode' ? 'DK' : 'INV'}-2026-0001</p>
                            </div>
                         </div>
@@ -479,17 +482,17 @@ export default function SettingsPage() {
                           profile.invoice_template === 'dark_mode' ? 'border-slate-700' : 'border-slate-50'
                         }`}>
                            <div className="space-y-1">
-                              <p className="font-bold text-slate-400 uppercase text-[7px] tracking-widest">Bill To</p>
+                              <p className="font-bold text-slate-400 uppercase text-[7px] tracking-widest">{t('settings.preview.billTo')}</p>
                               <p className={`font-bold text-[10px] ${profile.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-900'}`}>Global Solutions Inc.</p>
                               <p className="text-slate-500 leading-relaxed">123 Business Avenue<br/>Innovation Park, CA 94107</p>
                            </div>
                            <div className="text-right space-y-1">
                               <div className="flex justify-between pl-8">
-                                <span className="text-slate-400 font-bold uppercase text-[7px] tracking-widest">Date</span>
+                                <span className="text-slate-400 font-bold uppercase text-[7px] tracking-widest">{t('settings.preview.date')}</span>
                                 <span className={profile.invoice_template === 'dark_mode' ? 'text-slate-200' : 'text-slate-700'}>Mar 15, 2026</span>
                               </div>
                               <div className="flex justify-between pl-8">
-                                <span className="text-slate-400 font-bold uppercase text-[7px] tracking-widest">Due</span>
+                                <span className="text-slate-400 font-bold uppercase text-[7px] tracking-widest">{t('settings.preview.due')}</span>
                                 <span className="font-bold" style={{ color: profile.brand_color }}>Mar 30, 2026</span>
                               </div>
                            </div>
@@ -504,18 +507,18 @@ export default function SettingsPage() {
                              backgroundColor: (profile.invoice_template !== 'scandinavian_minimal' && profile.invoice_template !== 'dark_mode') ? `${profile.brand_color}10` : undefined,
                              color: (profile.invoice_template !== 'scandinavian_minimal' && profile.invoice_template !== 'dark_mode') ? profile.brand_color : undefined
                            }}>
-                              <span>Description</span>
+                              <span>{t('settings.preview.desc')}</span>
                               <div className="flex gap-6">
-                                <span>Qty</span>
-                                <span>Total</span>
+                                <span>{t('settings.preview.qty')}</span>
+                                <span>{t('settings.preview.total')}</span>
                               </div>
                            </div>
                            
                            <div className="space-y-2.5 px-3">
                               <div className="flex justify-between items-center group">
                                  <div className="space-y-0.5">
-                                    <p className={`font-bold ${profile.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-800'}`}>Professional Services</p>
-                                    <p className="text-slate-400 text-[8px]">Development and Consultation</p>
+                                    <p className={`font-bold ${profile.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-800'}`}>{t('settings.preview.sampleItem1')}</p>
+                                    <p className="text-slate-400 text-[8px]">{t('settings.preview.sampleDesc1')}</p>
                                  </div>
                                  <div className="flex gap-8 font-bold">
                                     <span className="text-slate-400">01</span>
@@ -525,8 +528,8 @@ export default function SettingsPage() {
                               <div className={`h-px w-full ${profile.invoice_template === 'dark_mode' ? 'bg-slate-700' : 'bg-slate-50'}`}></div>
                               <div className="flex justify-between items-center">
                                  <div className="space-y-0.5">
-                                    <p className={`font-bold ${profile.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-800'}`}>License Fee</p>
-                                    <p className="text-slate-400 text-[8px]">Annual SaaS Subscription</p>
+                                    <p className={`font-bold ${profile.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-800'}`}>{t('settings.preview.sampleItem2')}</p>
+                                    <p className="text-slate-400 text-[8px]">{t('settings.preview.sampleDesc2')}</p>
                                  </div>
                                  <div className="flex gap-8 font-bold">
                                     <span className="text-slate-400">01</span>
@@ -540,16 +543,16 @@ export default function SettingsPage() {
                         <div className="flex justify-end pt-4">
                            <div className="w-1/2 space-y-2">
                               <div className="flex justify-between text-slate-400 font-bold uppercase text-[7px]">
-                                 <span>Subtotal</span>
+                                 <span>{t('settings.preview.subtotal')}</span>
                                  <span className={profile.invoice_template === 'dark_mode' ? 'text-slate-300' : 'text-slate-700'}>$1,500.00</span>
                               </div>
                               <div className="flex justify-between text-slate-400 font-bold uppercase text-[7px]">
-                                 <span>Tax (10%)</span>
+                                 <span>{t('settings.preview.tax')}</span>
                                  <span className={profile.invoice_template === 'dark_mode' ? 'text-slate-300' : 'text-slate-700'}>$150.00</span>
                               </div>
                               <div className="h-px bg-slate-100 mt-2"></div>
                               <div className="flex justify-between items-center pt-1">
-                                 <span className="font-black text-[10px]" style={{ color: profile.invoice_template === 'dark_mode' ? '#fff' : profile.brand_color }}>TOTAL</span>
+                                 <span className="font-black text-[10px]" style={{ color: profile.invoice_template === 'dark_mode' ? '#fff' : profile.brand_color }}>{t('settings.preview.total').toUpperCase()}</span>
                                  <span className="font-black text-[12px]" style={{ color: profile.invoice_template === 'dark_mode' ? '#fff' : profile.brand_color }}>$1,650.00</span>
                               </div>
                            </div>
@@ -559,9 +562,9 @@ export default function SettingsPage() {
                         <div className="pt-8 flex justify-between items-end">
                            <div className="space-y-4">
                               <div className="w-24 h-6 border-b border-slate-300 opacity-30"></div>
-                              <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">Authorized Signature</p>
+                              <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">{t('settings.preview.authorized')}</p>
                            </div>
-                           <p className="text-[7px] text-slate-400 font-medium italic">Thank you for your business!</p>
+                           <p className="text-[7px] text-slate-400 font-medium italic">{t('settings.preview.thankYou')}</p>
                         </div>
 
                       </div>
@@ -569,9 +572,9 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="pt-6 flex justify-end">
+                <div className="pt-6 flex justify-start">
                   <Button onClick={handleSaveProfile} isLoading={loading}>
-                    <Save size={18} className="mr-2" /> Save Branding
+                    <Save size={18} className="mr-2" /> {t('common.save')}
                   </Button>
                 </div>
               </>
@@ -579,13 +582,13 @@ export default function SettingsPage() {
 
             {activeTab === 'payment' && (
               <div className="space-y-6">
-                <h2 className="text-lg font-bold text-slate-900 border-b pb-4">Payment Automation</h2>
+                <h2 className="text-lg font-bold text-slate-900 border-b pb-4">{t('settings.paymentAutomation')}</h2>
                 <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-xl space-y-4">
                   <div className="flex items-start gap-4 text-indigo-900">
                     <CreditCard size={24} className="shrink-0" />
                     <div className="space-y-1">
-                      <p className="font-semibold">UPI Payment Integration</p>
-                      <p className="text-sm text-indigo-700 opacity-80">Enable instant payments by adding your UPI ID. A dynamic QR code will be generated on your invoices.</p>
+                      <p className="font-semibold">{t('settings.upiTitle')}</p>
+                      <p className="text-sm text-indigo-700 opacity-80">{t('settings.upiDesc')}</p>
                     </div>
                   </div>
 
@@ -598,23 +601,23 @@ export default function SettingsPage() {
                          onChange={(e) => setProfile({ ...profile, qr_code_enabled: e.target.checked })}
                          className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
                        />
-                       <label htmlFor="qr_enabled" className="text-sm font-semibold text-slate-700 cursor-pointer">Enable QR Code on Invoices</label>
+                       <label htmlFor="qr_enabled" className="text-sm font-semibold text-slate-700 cursor-pointer">{t('settings.qrEnable')}</label>
                     </div>
 
                     <Input 
-                      label="UPI ID" 
+                      label={t('settings.upiId')} 
                       placeholder="username@bank (e.g., example@okicici)" 
                       value={profile.upi_id}
                       onChange={(e) => setProfile({ ...profile, upi_id: e.target.value })}
                       disabled={!profile.qr_code_enabled}
                     />
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Supported Apps: GPay, PhonePe, Paytm, BHIM</p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">{t('settings.upiApps')}</p>
                   </div>
                 </div>
 
-                <div className="pt-4 flex justify-end">
+                <div className="pt-4 flex justify-start">
                   <Button onClick={handleSaveProfile} isLoading={loading}>
-                    <Save size={18} className="mr-2" /> Save Payment Settings
+                    <Save size={18} className="mr-2" /> {t('settings.savePayment')}
                   </Button>
                 </div>
               </div>
@@ -622,13 +625,13 @@ export default function SettingsPage() {
 
             {activeTab === 'api' && (
               <div className="space-y-6">
-                <h2 className="text-lg font-bold text-slate-900 border-b pb-4">API Access</h2>
+                <h2 className="text-lg font-bold text-slate-900 border-b pb-4">{t('settings.api')}</h2>
                 <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-xl space-y-4">
                   <div className="flex items-start gap-4 text-indigo-900">
                     <Shield size={24} className="shrink-0" />
                     <div className="space-y-1">
-                      <p className="font-semibold">Your Private API Key</p>
-                      <p className="text-sm text-indigo-700 opacity-80">Use this key to integrate Yuvr-SaaS with your existing applications. Keep it secure!</p>
+                      <p className="font-semibold">{t('settings.apiKeyTitle')}</p>
+                      <p className="text-sm text-indigo-700 opacity-80">{t('settings.apiKeyDesc')}</p>
                     </div>
                   </div>
 
@@ -645,10 +648,10 @@ export default function SettingsPage() {
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-600 text-xs font-semibold hover:underline"
                           onClick={() => {
                             navigator.clipboard.writeText(profile.api_key);
-                            alert('API Key copied to clipboard!');
+                            alert(t('settings.copied') || 'API Key copied to clipboard!');
                           }}
                         >
-                          Copy
+                          {t('settings.copy')}
                         </button>
                       )}
                     </div>
@@ -658,7 +661,7 @@ export default function SettingsPage() {
                       onClick={generateApiKey}
                       isLoading={isGeneratingKey}
                     >
-                      {profile.api_key ? 'Regenerate' : 'Generate Key'}
+                      {profile.api_key ? t('settings.regenerate') : t('settings.generateKey')}
                     </Button>
                   </div>
                 </div>
@@ -711,30 +714,30 @@ export default function SettingsPage() {
 
             {activeTab === 'security' && (
               <div className="space-y-6">
-                <h2 className="text-lg font-bold text-slate-900 border-b pb-4">Security Settings</h2>
+                <h2 className="text-lg font-bold text-slate-900 border-b pb-4">{t('settings.security')}</h2>
                 
                 <div className="max-w-md space-y-4">
                   <div className="p-4 bg-amber-50 rounded-lg border border-amber-100 flex gap-3 text-amber-700 mb-6">
                     <Shield size={20} className="shrink-0" />
-                    <p className="text-sm">Keep your account secure by using a strong password. You will need to re-verify your current password to make changes.</p>
+                    <p className="text-sm">{t('settings.securityDesc')}</p>
                   </div>
 
                   <Input 
-                    label="Current Password" 
+                    label={t('settings.currentPassword')} 
                     type="password"
                     placeholder="••••••••" 
                     value={passwords.current}
                     onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
                   />
                   <Input 
-                    label="New Password" 
+                    label={t('settings.newPassword')} 
                     type="password"
                     placeholder="••••••••" 
                     value={passwords.new}
                     onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
                   />
                   <Input 
-                    label="Confirm New Password" 
+                    label={t('settings.confirmPassword')} 
                     type="password"
                     placeholder="••••••••" 
                     value={passwords.confirm}
@@ -747,10 +750,70 @@ export default function SettingsPage() {
                       onClick={handleChangePassword}
                       isLoading={securityLoading}
                     >
-                      Update Password
+                      {t('settings.updatePassword')}
                     </Button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'support' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center border-b pb-4">
+                  <h2 className="text-lg font-bold text-slate-900">{t('settings.support')}</h2>
+                  <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest">{t('settings.supportActive') || 'Support Active'}</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                       <LifeBuoy size={80} />
+                    </div>
+                    <div className="relative z-10">
+                      <h3 className="text-indigo-900 font-bold mb-2">{t('settings.techSupport')}</h3>
+                      <p className="text-sm text-indigo-700/80 mb-4">{t('settings.techSupportDesc')}</p>
+                      <a href="mailto:jawaharyuvr@gmail.com?subject=Technical Inquiry - YUVR SaaS" className="text-indigo-600 font-bold text-sm hover:underline flex items-center gap-2">
+                        {t('settings.contactTech')}
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="bg-fuchsia-50 border border-fuchsia-100 p-6 rounded-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                       <LifeBuoy size={80} />
+                    </div>
+                    <div className="relative z-10">
+                      <h3 className="text-fuchsia-900 font-bold mb-2">{t('settings.funcSupport')}</h3>
+                      <p className="text-sm text-fuchsia-700/80 mb-4">{t('settings.funcSupportDesc')}</p>
+                      <a href="mailto:jawaharyuvr@gmail.com?subject=Functional Inquiry - YUVR SaaS" className="text-fuchsia-600 font-bold text-sm hover:underline flex items-center gap-2">
+                        {t('settings.contactFunc')}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-widest">{t('settings.escalationTitle')}</h3>
+                  <div className="space-y-4">
+                     <div className="flex items-center gap-4 text-sm">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-400">1</div>
+                        <p className="text-slate-600">{t('settings.responseTime')} <span className="font-bold text-slate-900">24-48 hours</span></p>
+                     </div>
+                     <div className="flex items-center gap-4 text-sm">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-400">2</div>
+                        <p className="text-slate-600">Priority support for <span className="font-bold text-indigo-600">Pro & Enterprise</span> users: <span className="font-bold text-slate-900">under 6 hours</span></p>
+                     </div>
+                  </div>
+                </div>
+
+                <Card className="bg-slate-50 border-dashed border-2 shadow-none">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-sm text-slate-500 mb-4">Need immediate help with a critical bug?</p>
+                    <Button variant="outline" className="border-slate-300 hover:bg-white">
+                       Join Community Discord
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
             )}
           </CardContent>

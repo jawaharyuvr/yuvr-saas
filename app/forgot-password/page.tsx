@@ -11,8 +11,11 @@ import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/Card'
 import { ArrowLeft, Mail, Lock, CheckCircle, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DynamicBackground } from '@/components/ui/DynamicBackground';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation();
   const [step, setStep] = useState(1); // 1: Email, 2: OTP, 3: New Password, 4: Success
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -44,7 +47,7 @@ export default function ForgotPasswordPage() {
       }, 1000);
     } else if (timer === 0) {
       setIsExpired(true);
-      setError('Your recovery code has expired. Please request a new one.');
+      setError(t('auth.recover.errorExpired'));
     }
 
     return () => {
@@ -80,7 +83,7 @@ export default function ForgotPasswordPage() {
     setError(null);
 
     if (isExpired) {
-      setError('Token expired. Please request a new one.');
+      setError(t('auth.recover.errorToken'));
       setLoading(false);
       return;
     }
@@ -95,7 +98,7 @@ export default function ForgotPasswordPage() {
     if (error) {
       if (error.message.toLowerCase().includes('expired')) {
         setIsExpired(true);
-        setError('Token expired. Please go back and request a new code.');
+        setError(t('auth.recover.errorToken'));
       } else {
         setError(error.message);
       }
@@ -109,11 +112,11 @@ export default function ForgotPasswordPage() {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('settings.errorPasswordMatch'));
       return;
     }
     if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(t('settings.errorPasswordShort'));
       return;
     }
 
@@ -151,23 +154,26 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-transparent relative p-6 overflow-hidden">
       <DynamicBackground />
       <div className="w-full max-w-md relative z-10">
-        <Link href="/login" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors mb-8 group">
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Back to Login</span>
-        </Link>
+        <div className="flex items-center justify-between mb-8">
+          <Link href="/login" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span>{t('auth.login')}</span>
+          </Link>
+          <LanguageSwitcher />
+        </div>
         
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-indigo-600">Yuvr's</h1>
-          <p className="text-slate-500 mt-2 text-sm">Account Recovery</p>
+          <h1 className="text-3xl font-bold text-indigo-600">{t('common.brandName')}</h1>
+          <p className="text-slate-500 mt-2 text-sm">{t('auth.recover.title')}</p>
         </div>
 
         <Card>
           <CardHeader>
             <h2 className="text-xl font-semibold text-slate-900">
-              {step === 1 && "Reset Password"}
-              {step === 2 && "Enter Recovery Code"}
-              {step === 3 && "Set New Password"}
-              {step === 4 && "Password Reset Successful"}
+              {step === 1 && t('auth.recover.step1_title')}
+              {step === 2 && t('auth.recover.step2_title')}
+              {step === 3 && t('auth.recover.step3_title')}
+              {step === 4 && t('auth.recover.step4_title')}
             </h2>
           </CardHeader>
           <CardContent>
@@ -183,10 +189,10 @@ export default function ForgotPasswordPage() {
                   className="space-y-4"
                 >
                   <p className="text-sm text-slate-600 mb-4">
-                    Enter the email associated with your account and we'll send you a recovery code.
+                    {t('auth.recover.step1_desc')}
                   </p>
                   <Input
-                    label="Email Address"
+                    label={t('auth.email')}
                     type="email"
                     placeholder="you@example.com"
                     value={email}
@@ -194,9 +200,9 @@ export default function ForgotPasswordPage() {
                     required
                     icon={<Mail size={18} />}
                   />
-                  {error && <p className="text-sm text-rose-500 bg-rose-50 p-3 rounded-lg">{error}</p>}
+                  {error && <p className="text-sm text-rose-500 bg-rose-50 p-3 rounded-lg border border-rose-100">{error}</p>}
                   <Button type="submit" className="w-full" isLoading={loading}>
-                    Send Recovery Code
+                    {t('auth.recover.send_code')}
                   </Button>
                 </motion.form>
               )}
@@ -211,21 +217,19 @@ export default function ForgotPasswordPage() {
                   onSubmit={handleVerifyOtp} 
                   className="space-y-4"
                 >
-                  <p className="text-sm text-slate-600 mb-4">
-                    We've sent an email to <span className="font-bold">{email}</span>. 
-                    <br /><br />
-                    If you received an 8-digit code, enter it below. If you received a link, please click it to continue.
+                  <p className="text-sm text-slate-600 mb-4 whitespace-pre-wrap">
+                    {t('auth.recover.step2_desc')}
                   </p>
                   
                   <div className="flex items-center justify-between mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Code expires in:</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t('auth.recover.expires_in')}</span>
                     <span className={`text-sm font-bold ${timer < 60 ? 'text-rose-500 animate-pulse' : 'text-slate-700'}`}>
                       {formatTime(timer)}
                     </span>
                   </div>
 
                   <Input
-                    label="Recovery Code (8-digits)"
+                    label={t('auth.recover.code_label')}
                     type="text"
                     placeholder=""
                     value={otp}
@@ -236,9 +240,9 @@ export default function ForgotPasswordPage() {
                     disabled={isExpired}
                     className="text-center text-2xl tracking-[0.5em] font-bold"
                   />
-                  {error && <p className={`text-sm p-3 rounded-lg ${isExpired ? 'text-rose-600 bg-rose-50 border border-rose-100' : 'text-rose-500 bg-rose-50'}`}>{error}</p>}
+                  {error && <p className={`text-sm p-3 rounded-lg border ${isExpired ? 'text-rose-600 bg-rose-50 border-rose-100' : 'text-rose-500 bg-rose-50 border-rose-100'}`}>{error}</p>}
                   <Button type="submit" className="w-full" isLoading={loading} disabled={isExpired}>
-                    Verify Code
+                    {t('auth.recover.verify_code')}
                   </Button>
                   <button 
                     type="button" 
@@ -250,7 +254,7 @@ export default function ForgotPasswordPage() {
                     }} 
                     className="text-sm text-indigo-600 font-medium w-full text-center hover:underline"
                   >
-                    Request a new code
+                    {t('auth.recover.request_new')}
                   </button>
                 </motion.form>
               )}
@@ -266,25 +270,25 @@ export default function ForgotPasswordPage() {
                   className="space-y-4"
                 >
                    <Input
-                    label="New Password"
+                    label={t('auth.recover.new_password')}
                     type="password"
-                    placeholder="••••••••"
+                    placeholder={t('auth.passwordPlaceholder')}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     icon={<Lock size={18} />}
                   />
                   <Input
-                    label="Confirm New Password"
+                    label={t('auth.recover.confirm_password')}
                     type="password"
-                    placeholder="••••••••"
+                    placeholder={t('auth.passwordPlaceholder')}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                   />
-                  {error && <p className="text-sm text-rose-500 bg-rose-50 p-3 rounded-lg">{error}</p>}
+                  {error && <p className="text-sm text-rose-500 bg-rose-50 p-3 rounded-lg border border-rose-100">{error}</p>}
                   <Button type="submit" className="w-full" isLoading={loading}>
-                    Reset Password
+                    {t('auth.recover.reset_btn')}
                   </Button>
                 </motion.form>
               )}
@@ -300,13 +304,13 @@ export default function ForgotPasswordPage() {
                   <div className="mx-auto w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-6">
                     <ShieldCheck size={32} />
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">You're all set!</h3>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">{t('auth.recover.success_title')}</h3>
                   <p className="text-slate-500 mb-8">
-                    Your password has been successfully reset. You can now login with your new password.
+                    {t('auth.recover.success_desc')}
                   </p>
                   <Link href="/login">
                     <Button className="w-full bg-indigo-600 hover:bg-indigo-700">
-                      Continue to Login
+                      {t('auth.recover.login_btn')}
                     </Button>
                   </Link>
                 </motion.div>

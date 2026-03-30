@@ -8,8 +8,10 @@ import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export default function NewClientPage() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -26,7 +28,7 @@ export default function NewClientPage() {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      alert('You must be logged in to create a client');
+      alert(t('auth.loginRequired') || 'You must be logged in to create a client');
       setLoading(false);
       return;
     }
@@ -56,8 +58,8 @@ export default function NewClientPage() {
           <ArrowLeft size={20} />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Add New Client</h1>
-          <p className="text-slate-500 text-sm">Fill in the details below to create a new client.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('clients.addClient')}</h1>
+          <p className="text-slate-500 text-sm">{t('clients.newClientSubtitle')}</p>
         </div>
       </div>
 
@@ -65,13 +67,13 @@ export default function NewClientPage() {
         <CardContent className="p-8">
           <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input name="name" label="Client Name" placeholder="e.g. Acme Corp" required />
-              <Input name="email" label="Email Address" type="email" placeholder="client@example.com" required />
-              <Input name="phone" label="Phone Number" placeholder="+1 (555) 000-0000" />
+              <Input name="name" label={t('clients.name')} placeholder="e.g. Acme Corp" required />
+              <Input name="email" label={t('clients.email')} type="email" placeholder="client@example.com" required />
+              <Input name="phone" label={t('clients.phone')} placeholder="+1 (555) 000-0000" />
             </div>
             
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Address</label>
+              <label className="text-sm font-medium text-slate-700">{t('clients.address')}</label>
               <textarea 
                 name="address"
                 className="flex min-h-[100px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -81,10 +83,10 @@ export default function NewClientPage() {
 
             <div className="pt-4 flex gap-4">
               <Button type="submit" className="flex items-center gap-2" isLoading={loading}>
-                <Save size={18} /> Save Client
+                <Save size={18} /> {t('common.save')}
               </Button>
               <Link href="/dashboard/clients">
-                <Button variant="outline">Cancel</Button>
+                <Button variant="outline">{t('common.cancel')}</Button>
               </Link>
             </div>
           </form>
