@@ -12,7 +12,11 @@ import { motion } from 'framer-motion';
 import { clearLocalSession } from '@/lib/sessionManager';
 import { DynamicBackground } from '@/components/ui/DynamicBackground';
 
+import { useTranslation } from '@/contexts/LanguageContext';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+
 export default function LoginPage() {
+  const { t } = useTranslation();
   const [identifier, setIdentifier] = useState(''); // Email or Username
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -59,7 +63,7 @@ export default function LoginPage() {
         .rpc('get_email_by_username', { p_username: identifier.toLowerCase() });
       
       if (resolveError || !resolvedEmail) {
-        setError('Invalid username or email');
+        setError(t('auth.invalidCredentials'));
         setLoading(false);
         return;
       }
@@ -73,7 +77,7 @@ export default function LoginPage() {
 
     if (error) {
       if (error.message.toLowerCase().includes('email not confirmed')) {
-        setError('Please verify your email address to log in. Check your inbox for the confirmation link.');
+        setError(t('auth.verifyEmail'));
       } else {
         setError(error.message);
       }
@@ -92,19 +96,22 @@ export default function LoginPage() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md"
       >
-        <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors mb-8 group">
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Back to Home</span>
-        </Link>
+        <div className="flex items-center justify-between mb-8">
+          <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span>{t('auth.backToHome')}</span>
+          </Link>
+          <LanguageSwitcher />
+        </div>
         
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-indigo-600">Yuvr's</h1>
-          <p className="text-slate-500 mt-2 text-sm">Sign in to manage your invoices</p>
+          <h1 className="text-3xl font-bold text-indigo-600">{t('common.brandName')}</h1>
+          <p className="text-slate-500 mt-2 text-sm">{t('auth.loginSubtitle')}</p>
         </div>
 
         <Card>
           <CardHeader>
-            <h2 className="text-xl font-semibold text-slate-900">Login</h2>
+            <h2 className="text-xl font-semibold text-slate-900">{t('auth.login')}</h2>
           </CardHeader>
           <CardContent>
             <Button 
@@ -131,7 +138,7 @@ export default function LoginPage() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
-              Sign in with Google
+              {t('auth.google')}
             </Button>
             
             <div className="relative mb-4">
@@ -139,15 +146,15 @@ export default function LoginPage() {
                 <span className="w-full border-t border-slate-200" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-slate-500">Or continue with</span>
+                <span className="bg-white px-2 text-slate-500">{t('auth.orContinue')}</span>
               </div>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
               <Input
-                label="Email or Username"
+                label={t('auth.emailOrUsername')}
                 type="text"
-                placeholder="you@example.com or username"
+                placeholder={t('auth.emailPlaceholder')}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 required
@@ -155,14 +162,14 @@ export default function LoginPage() {
               />
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-slate-700">Password</label>
+                  <label className="text-sm font-medium text-slate-700">{t('auth.password')}</label>
                   <Link href="/forgot-password" className="text-sm text-indigo-600 hover:underline">
-                    Forgot Password?
+                    {t('auth.forgotPassword')}
                   </Link>
                 </div>
                 <Input
                   type="password"
-                  placeholder="••••••••"
+                  placeholder={t('auth.passwordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -180,15 +187,15 @@ export default function LoginPage() {
                 </p>
               )}
               <Button type="submit" className="w-full" isLoading={loading}>
-                Sign In
+                {t('auth.login')}
               </Button>
             </form>
           </CardContent>
           <CardFooter className="text-center">
             <p className="text-sm text-slate-500">
-              Don't have an account?{' '}
+              {t('auth.noAccount')}{' '}
               <Link href="/signup" className="text-indigo-600 font-medium hover:underline">
-                Sign up
+                {t('auth.signup')}
               </Link>
             </p>
           </CardFooter>

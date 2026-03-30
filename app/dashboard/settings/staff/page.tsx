@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Users, UserPlus, Trash2, Shield, Mail, CheckCircle2, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface StaffMember {
   id: string;
@@ -20,6 +21,7 @@ interface StaffMember {
 }
 
 export default function StaffManagementPage() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -65,7 +67,7 @@ export default function StaffManagementPage() {
   };
 
   const handleRemoveStaff = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this staff member?')) return;
+    if (!confirm(t('staff.removeConfirm') || 'Are you sure you want to remove this staff member?')) return;
     
     const { error } = await supabase
       .from('staff')
@@ -92,7 +94,7 @@ export default function StaffManagementPage() {
         .single();
 
       if (profileError || !targetProfile) {
-        throw new Error('User not found. They must have a Yuvr-SaaS account first.');
+        throw new Error(t('staff.userNotFound') || `User not found. They must have a ${t('common.brandName')} account first.`);
       }
 
       // 2. Add as staff
@@ -105,11 +107,11 @@ export default function StaffManagementPage() {
         });
 
       if (inviteError) {
-        if (inviteError.code === '23505') throw new Error('User is already a staff member.');
+        if (inviteError.code === '23505') throw new Error(t('staff.alreadyStaff') || 'User is already a staff member.');
         throw inviteError;
       }
 
-      alert('Staff member added successfully!');
+      alert(t('staff.addSuccess') || 'Staff member added successfully!');
       setInviteEmail('');
       setIsInviteModalOpen(false);
       fetchStaff();
@@ -124,12 +126,12 @@ export default function StaffManagementPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Staff Management</h1>
-          <p className="text-slate-500 text-sm">Manage your team and their access permissions.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('staff.title')}</h1>
+          <p className="text-slate-500 text-sm">{t('staff.subtitle')}</p>
         </div>
         <Button onClick={() => setIsInviteModalOpen(true)} className="flex items-center gap-2">
           <UserPlus size={18} />
-          Add Staff Member
+          {t('staff.addStaff')}
         </Button>
       </div>
 
@@ -138,15 +140,15 @@ export default function StaffManagementPage() {
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-4 font-medium">Name / Email</th>
-                <th className="px-6 py-4 font-medium">Role</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
+                <th className="px-6 py-4 font-medium">{t('staff.nameEmail')}</th>
+                <th className="px-6 py-4 font-medium">{t('staff.role')}</th>
+                <th className="px-6 py-4 font-medium">{t('staff.status')}</th>
+                <th className="px-6 py-4 font-medium text-right">{t('staff.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-400">Loading team members...</td></tr>
+                <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-400">{t('staff.loading')}</td></tr>
               ) : staff.length > 0 ? (
                 staff.map((member) => (
                   <tr key={member.id} className="hover:bg-slate-50 transition-colors">
@@ -164,7 +166,7 @@ export default function StaffManagementPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 text-emerald-600">
                         <CheckCircle2 size={14} />
-                        <span className="text-xs font-medium">Active</span>
+                        <span className="text-xs font-medium">{t('staff.active')}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -178,8 +180,8 @@ export default function StaffManagementPage() {
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                     <Users size={48} className="mx-auto text-slate-200 mb-4" />
-                    <p className="font-medium text-slate-900">No staff members yet</p>
-                    <p className="text-sm mt-1">Start by adding your first team member.</p>
+                    <p className="font-medium text-slate-900">{t('staff.noStaff')}</p>
+                    <p className="text-sm mt-1">{t('staff.noStaffDesc')}</p>
                   </td>
                 </tr>
               )}
@@ -194,13 +196,13 @@ export default function StaffManagementPage() {
           <Card className="w-full max-w-md shadow-2xl">
             <CardContent className="p-6 space-y-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-slate-900">Add Staff Member</h3>
+                <h3 className="text-lg font-bold text-slate-900">{t('staff.addStaff')}</h3>
                 <button onClick={() => setIsInviteModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
               </div>
               
               <form onSubmit={handleAddStaff} className="space-y-4">
                 <Input 
-                  label="User Email" 
+                  label={t('staff.userEmail')} 
                   type="email" 
                   placeholder="colleague@example.com"
                   value={inviteEmail}
@@ -208,20 +210,20 @@ export default function StaffManagementPage() {
                   required
                 />
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Role</label>
+                  <label className="text-sm font-medium text-slate-700">{t('staff.role')}</label>
                   <select 
                     className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     value={inviteRole}
                     onChange={(e) => setInviteRole(e.target.value as any)}
                   >
-                    <option value="staff">Staff (Can manage invoices/clients)</option>
-                    <option value="admin">Admin (Full Access)</option>
-                    <option value="viewer">Viewer (Read-only)</option>
+                    <option value="staff">{t('staff.staffRole')}</option>
+                    <option value="admin">{t('staff.adminRole')}</option>
+                    <option value="viewer">{t('staff.viewerRole')}</option>
                   </select>
                 </div>
                 <div className="pt-2 flex gap-3">
-                  <Button variant="outline" className="flex-1" onClick={() => setIsInviteModalOpen(false)}>Cancel</Button>
-                  <Button type="submit" className="flex-1" isLoading={inviting}>Add User</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setIsInviteModalOpen(false)}>{t('common.cancel')}</Button>
+                  <Button type="submit" className="flex-1" isLoading={inviting}>{t('staff.addUser')}</Button>
                 </div>
               </form>
             </CardContent>

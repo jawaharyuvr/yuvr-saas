@@ -4,20 +4,25 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Package, Plus, Search, AlertCircle, Edit2, Trash2, Tag, Layers } from 'lucide-react';
+import { Package, Plus, Search, AlertCircle, Edit2, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/utils/format';
+import { SUPPORTED_CURRENCIES } from '@/utils/currencyUtils';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface Product {
   id: string;
   name: string;
   sku: string;
   unit_price: number;
+  currency: string;
   current_stock: number;
   min_stock: number;
   unit: string;
 }
 
 export default function InventoryPage() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,6 +34,7 @@ export default function InventoryPage() {
     name: '',
     sku: '',
     unit_price: 0,
+    currency: 'USD',
     current_stock: 0,
     min_stock: 5,
     unit: 'Pcs'
@@ -91,7 +97,7 @@ export default function InventoryPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+    if (!confirm(t('inventory.delete_confirm') || 'Are you sure you want to delete this product?')) return;
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (error) alert(error.message);
     else fetchInventory();
@@ -106,12 +112,12 @@ export default function InventoryPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Inventory Management</h1>
-          <p className="text-slate-500 text-sm">Track your products, stock levels, and low stock alerts.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('inventory.title')}</h1>
+          <p className="text-slate-500 text-sm">{t('inventory.subtitle')}</p>
         </div>
-        <Button onClick={() => { setEditingProduct(null); setForm({ name: '', sku: '', unit_price: 0, current_stock: 0, min_stock: 5, unit: 'Pcs' }); setIsModalOpen(true); }} className="flex items-center gap-2">
+        <Button onClick={() => { setEditingProduct(null); setForm({ name: '', sku: '', unit_price: 0, currency: 'USD', current_stock: 0, min_stock: 5, unit: 'Pcs' }); setIsModalOpen(true); }} className="flex items-center gap-2">
           <Plus size={18} />
-          Add Product
+          {t('inventory.add_product')}
         </Button>
       </div>
 
@@ -120,7 +126,7 @@ export default function InventoryPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text" 
-            placeholder="Search products by name or SKU..."
+            placeholder={t('inventory.search_placeholder')}
             className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -130,7 +136,7 @@ export default function InventoryPage() {
            <div className="px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-100 flex items-center gap-2">
               <AlertCircle size={16} className="text-amber-500" />
               <span className="text-xs font-bold text-amber-700 uppercase">
-                 {products.filter(p => p.current_stock <= p.min_stock).length} Low Stock
+                 {products.filter(p => p.current_stock <= p.min_stock).length} {t('inventory.low_stock')}
               </span>
            </div>
         </div>
@@ -141,45 +147,48 @@ export default function InventoryPage() {
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 text-slate-600 text-[10px] uppercase font-bold tracking-widest">
               <tr>
-                <th className="px-6 py-4">Product / SKU</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Price</th>
-                <th className="px-6 py-4 text-right">Stock</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4">{t('inventory.product_name')} / {t('inventory.sku')}</th>
+                <th className="px-6 py-4 border-l border-slate-100 pl-4">{t('common.status')}</th>
+                <th className="px-6 py-4 text-right border-l border-slate-100">{t('inventory.basePrice')}</th>
+                <th className="px-6 py-4 text-right border-l border-slate-100">{t('inventory.stock')}</th>
+                <th className="px-6 py-4 text-right border-l border-slate-100">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400">Fetching your inventory...</td></tr>
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400">{t('common.loading')}</td></tr>
               ) : filteredProducts.length > 0 ? (
                 filteredProducts.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-slate-900">{p.name}</span>
-                        <span className="text-[10px] font-mono text-slate-400 uppercase">{p.sku || 'No SKU'}</span>
+                        <span className="text-[10px] font-mono text-slate-400 uppercase">{p.sku || t('inventory.no_sku')}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 border-l border-slate-50/50 pl-4">
                       {p.current_stock <= p.min_stock ? (
-                        <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold uppercase tracking-tighter">Low Stock</span>
+                        <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold uppercase tracking-tighter">{t('inventory.low_stock')}</span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-tighter">In Stock</span>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-tighter">{t('inventory.in_stock')}</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-900 text-right">
-                      ${p.unit_price.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex flex-col items-end">
-                        <span className={`text-sm font-black ${p.current_stock <= p.min_stock ? 'text-rose-600' : 'text-slate-900'}`}>{p.current_stock}</span>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase">{p.unit}</span>
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900 text-right border-l border-slate-50/50">
+                      <div className="flex flex-col items-end leading-tight">
+                        <span>{formatCurrency(p.unit_price, p.currency || 'USD')}</span>
+                        <span className="text-[9px] text-slate-400 uppercase font-black">{p.currency || 'USD'}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right border-l border-slate-50/50">
+                      <div className="flex flex-col items-end leading-tight">
+                        <span className={`text-sm font-black ${p.current_stock <= p.min_stock ? 'text-rose-600' : 'text-slate-900'}`}>{p.current_stock}</span>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase">{t(`inventory.units.${p.unit.toLowerCase()}`) || p.unit}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right border-l border-slate-50/50">
                        <div className="flex justify-end gap-2">
                          <button onClick={() => { setEditingProduct(p); setForm(p); setIsModalOpen(true); }} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit2 size={16} /></button>
-                         <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
+                         <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-300 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
                        </div>
                     </td>
                   </tr>
@@ -190,8 +199,8 @@ export default function InventoryPage() {
                       <div className="mx-auto w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                         <Package size={32} className="text-slate-200" />
                       </div>
-                      <p className="font-bold text-slate-900">Your inventory is empty</p>
-                      <p className="text-sm text-slate-500">Start adding products to track stock levels.</p>
+                      <p className="font-bold text-slate-900">{t('inventory.empty')}</p>
+                      <p className="text-sm text-slate-500">{t('inventory.emptyDesc')}</p>
                    </td>
                 </tr>
               )}
@@ -207,7 +216,7 @@ export default function InventoryPage() {
              <div className="bg-indigo-600 p-4 flex justify-between items-center">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                    <Package size={20} />
-                   {editingProduct ? 'Update Product' : 'Add New Product'}
+                   {editingProduct ? t('inventory.update_product') : t('inventory.add_product')}
                 </h3>
                 <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white transition-colors">✕</button>
              </div>
@@ -215,25 +224,41 @@ export default function InventoryPage() {
                 <form onSubmit={handleSave} className="space-y-6">
                    <div className="grid grid-cols-2 gap-4">
                       <div className="col-span-2">
-                        <Input label="Product Name" placeholder="e.g. Wireless Mouse" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} required />
+                        <Input label={t('inventory.product_name')} placeholder="e.g. Wireless Mouse" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} required />
                       </div>
-                      <Input label="SKU / Barcode" placeholder="e.g. WH-1000XM4" value={form.sku} onChange={(e) => setForm({...form, sku: e.target.value})} />
-                      <Input label="Unit Price ($)" type="number" step="0.01" value={form.unit_price} onChange={(e) => setForm({...form, unit_price: parseFloat(e.target.value)})} required />
-                      <Input label="Initial Stock" type="number" value={form.current_stock} onChange={(e) => setForm({...form, current_stock: parseInt(e.target.value)})} required />
-                      <Input label="Minimum Stock Alert" type="number" value={form.min_stock} onChange={(e) => setForm({...form, min_stock: parseInt(e.target.value)})} required />
+                      <div className="col-span-1">
+                         <Input label={t('inventory.sku')} placeholder="e.g. WH-1000XM4" value={form.sku} onChange={(e) => setForm({...form, sku: e.target.value})} />
+                      </div>
+                      <div className="col-span-1">
+                        <div className="space-y-1.5">
+                           <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t('exchange.base')}</label>
+                           <select 
+                               className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer" 
+                               value={form.currency} 
+                               onChange={(e) => setForm({...form, currency: e.target.value})}
+                           >
+                               {SUPPORTED_CURRENCIES.map(curr => (
+                                  <option key={curr} value={curr}>{curr}</option>
+                               ))}
+                           </select>
+                        </div>
+                      </div>
+                      <Input label={t('inventory.price')} type="number" step="0.01" value={form.unit_price} onChange={(e) => setForm({...form, unit_price: parseFloat(e.target.value)})} required />
+                      <Input label={t('inventory.initialStock')} type="number" value={form.current_stock} onChange={(e) => setForm({...form, current_stock: parseInt(e.target.value)})} required />
+                      <Input label={t('inventory.min_stock')} type="number" value={form.min_stock} onChange={(e) => setForm({...form, min_stock: parseInt(e.target.value)})} required />
                       <div className="space-y-1.5">
-                         <label className="text-sm font-medium text-slate-700">Unit</label>
-                         <select className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={form.unit} onChange={(e) => setForm({...form, unit: e.target.value})}>
-                            <option value="Pcs">Pieces (Pcs)</option>
-                            <option value="Kg">Kilograms (Kg)</option>
-                            <option value="Mtr">Meters (Mtr)</option>
-                            <option value="Box">Boxes</option>
-                         </select>
-                      </div>
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t('inventory.unit')}</label>
+                          <select className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer" value={form.unit} onChange={(e) => setForm({...form, unit: e.target.value})}>
+                             <option value="Pcs">{t('inventory.units.pcs')}</option>
+                             <option value="Kg">{t('inventory.units.kg')}</option>
+                             <option value="Mtr">{t('inventory.units.mtr')}</option>
+                             <option value="Box">{t('inventory.units.box')}</option>
+                          </select>
+                       </div>
                    </div>
                    <div className="flex gap-3 pt-4 border-t">
-                      <Button variant="outline" className="flex-1" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                      <Button type="submit" className="flex-1 bg-indigo-600">{editingProduct ? 'Update Inventory' : 'Add to Inventory'}</Button>
+                      <Button variant="outline" className="flex-1" onClick={() => setIsModalOpen(false)}>{t('common.cancel')}</Button>
+                      <Button type="submit" className="flex-1 bg-indigo-600">{editingProduct ? t('inventory.update_product') : t('inventory.add_product')}</Button>
                    </div>
                 </form>
              </CardContent>

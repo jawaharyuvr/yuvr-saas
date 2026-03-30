@@ -15,10 +15,13 @@ import {
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, formatDate } from '@/utils/format';
 import { CURRENCIES, convertAmount } from '@/utils/constants';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { getLiveRate } from '@/utils/rateSync';
 
 export default function AnalyticsPage() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState({
     totalRevenue: 0,
     outstanding: 0,
@@ -36,39 +39,58 @@ export default function AnalyticsPage() {
 
   const fetchAnalytics = async () => {
     setLoading(true);
-    const { data: invoices } = await supabase.from('invoices').select('status, total_amount, currency, created_at');
-    
-    if (invoices) {
-      const totalRevenue = invoices
-        .filter(inv => inv.status === 'paid')
-        .reduce((sum, inv) => sum + convertAmount(Number(inv.total_amount) || 0, inv.currency || 'USD', dashboardCurrency), 0);
+    try {
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('status, total_amount, currency, exchange_rate, created_at');
       
-      const outstanding = invoices
-        .filter(inv => inv.status === 'unpaid')
-        .reduce((sum, inv) => sum + convertAmount(Number(inv.total_amount) || 0, inv.currency || 'USD', dashboardCurrency), 0);
-      
-      const paidInvoices = invoices.filter(inv => inv.status === 'paid').length;
-      const pendingInvoices = invoices.filter(inv => inv.status === 'unpaid').length;
+      if (invoices) {
+        const targetRate = await getLiveRate('USD', dashboardCurrency);
 
-      setStats(prev => ({
-        ...prev,
-        totalRevenue,
-        outstanding,
-        paidInvoices,
-        pendingInvoices
-      }));
+        const calculateEquivalence = (amount: number, fromCurr: string, storedRate?: number) => {
+           let amountInUSD = 0;
+           if (storedRate && Number(storedRate) > 0) {
+             amountInUSD = amount / Number(storedRate);
+           } else {
+             amountInUSD = convertAmount(amount, fromCurr, 'USD');
+           }
+           return amountInUSD * targetRate;
+        };
+
+        const totalRevenue = invoices
+          .filter(inv => inv.status === 'paid')
+          .reduce((sum, inv) => sum + calculateEquivalence(Number(inv.total_amount) || 0, inv.currency || 'USD', inv.exchange_rate), 0);
+        
+        const outstanding = invoices
+          .filter(inv => inv.status === 'unpaid')
+          .reduce((sum, inv) => sum + calculateEquivalence(Number(inv.total_amount) || 0, inv.currency || 'USD', inv.exchange_rate), 0);
+        
+        const paidInvoicesCount = invoices.filter(inv => inv.status === 'paid').length;
+        const pendingInvoicesCount = invoices.filter(inv => inv.status === 'unpaid').length;
+
+        setStats(prev => ({
+          ...prev,
+          totalRevenue,
+          outstanding,
+          paidInvoices: paidInvoicesCount,
+          pendingInvoices: pendingInvoicesCount
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const exportReport = () => {
     // Basic CSV Export logic
     const headers = ['Metric', 'Value'];
     const rows = [
-      ['Total Revenue', stats.totalRevenue],
-      ['Outstanding Amount', stats.outstanding],
-      ['Paid Invoices', stats.paidInvoices],
-      ['Pending Invoices', stats.pendingInvoices]
+      [t('dashboard.totalRevenue'), stats.totalRevenue],
+      [t('analytics.outstanding') || 'Outstanding Amount', stats.outstanding],
+      [t('dashboard.paidInvoices'), stats.paidInvoices],
+      [t('dashboard.pendingInvoices'), stats.pendingInvoices]
     ];
     
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -87,8 +109,8 @@ export default function AnalyticsPage() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 font-display">Analytics & Reporting</h1>
-          <p className="text-slate-500 text-sm">Track your business performance and financial health.</p>
+          <h1 className="text-2xl font-bold text-slate-900 font-display">{t('analytics.title')}</h1>
+          <p className="text-slate-500 text-sm">{t('analytics.subtitle')}</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
@@ -104,14 +126,14 @@ export default function AnalyticsPage() {
             </select>
           </div>
           <Button variant="outline" className="flex items-center gap-2" onClick={exportReport}>
-            <Download size={18} /> Export CSV
+            <Download size={18} /> {t('analytics.exportCsv')}
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
-          title="Total Revenue" 
+          title={t('dashboard.totalRevenue')} 
           value={formatCurrency(stats.totalRevenue, dashboardCurrency)} 
           change="+12.5%" 
           trend="up"
@@ -119,7 +141,7 @@ export default function AnalyticsPage() {
           color="indigo"
         />
         <StatCard 
-          title="Outstanding" 
+          title={t('analytics.outstanding')} 
           value={formatCurrency(stats.outstanding, dashboardCurrency)} 
           change="+2.4%" 
           trend="up"
@@ -127,7 +149,7 @@ export default function AnalyticsPage() {
           color="rose"
         />
         <StatCard 
-          title="Paid Invoices" 
+          title={t('dashboard.paidInvoices')} 
           value={stats.paidInvoices.toString()} 
           change="+5.2%" 
           trend="up"
@@ -135,8 +157,8 @@ export default function AnalyticsPage() {
           color="emerald"
         />
         <StatCard 
-          title="Avg. Payment Time" 
-          value={`${stats.avgPaymentDays} Days`} 
+          title={t('analytics.avgPaymentTime')} 
+          value={`${stats.avgPaymentDays} ${t('common.days') || 'Days'}`} 
           change="-0.8%" 
           trend="down"
           icon={Clock}
@@ -148,7 +170,7 @@ export default function AnalyticsPage() {
         <Card className="overflow-hidden border-slate-200/60 shadow-sm">
           <CardContent className="p-0">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">Revenue Overview</h2>
+              <h2 className="text-lg font-bold text-slate-900">{t('analytics.revenueOverview')}</h2>
               <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg">
                 <button className="px-3 py-1.5 text-xs font-medium bg-white shadow-sm rounded-md text-slate-900 border border-slate-200">Weekly</button>
                 <button className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-900">Monthly</button>
@@ -159,9 +181,9 @@ export default function AnalyticsPage() {
                 <table className="w-full text-left">
                   <thead className="bg-slate-50/50 text-slate-500 text-[10px] uppercase font-bold tracking-widest">
                     <tr>
-                      <th className="px-6 py-3">Period</th>
-                      <th className="px-6 py-3 text-right">Revenue</th>
-                      <th className="px-6 py-3 text-right">Invoices</th>
+                      <th className="px-6 py-3">{t('analytics.period')}</th>
+                      <th className="px-6 py-3 text-right">{t('analytics.revenue')}</th>
+                      <th className="px-6 py-3 text-right">{t('sidebar.invoices')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -186,13 +208,13 @@ export default function AnalyticsPage() {
         <Card className="overflow-hidden border-slate-200/60 shadow-sm">
           <CardContent className="p-0">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">Payment Status</h2>
+              <h2 className="text-lg font-bold text-slate-900">{t('analytics.paymentStatus')}</h2>
               <Calendar size={18} className="text-slate-400" />
             </div>
             <div className="p-6 space-y-6">
-              <StatusRow label="Paid Invoices" value={stats.paidInvoices} total={stats.paidInvoices + stats.pendingInvoices} color="bg-emerald-500" />
-              <StatusRow label="Pending Payment" value={stats.pendingInvoices} total={stats.paidInvoices + stats.pendingInvoices} color="bg-indigo-500" />
-              <StatusRow label="Overdue" value={0} total={stats.paidInvoices + stats.pendingInvoices} color="bg-rose-500" />
+              <StatusRow label={t('dashboard.paidInvoices')} value={stats.paidInvoices} total={stats.paidInvoices + stats.pendingInvoices} color="bg-emerald-500" />
+              <StatusRow label={t('analytics.pendingPayment')} value={stats.pendingInvoices} total={stats.paidInvoices + stats.pendingInvoices} color="bg-indigo-500" />
+              <StatusRow label={t('invoices.status.overdue')} value={0} total={stats.paidInvoices + stats.pendingInvoices} color="bg-rose-500" />
             </div>
           </CardContent>
         </Card>

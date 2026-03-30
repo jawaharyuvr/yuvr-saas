@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface Client {
   id: string;
@@ -19,6 +20,7 @@ interface Client {
 }
 
 export default function ClientsPage() {
+  const { t } = useTranslation();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -53,7 +55,7 @@ export default function ClientsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this client? All associated invoices will also be affected.')) return;
+    if (!confirm(t('clients.deleteConfirm') || 'Are you sure you want to delete this client? All associated invoices will also be affected.')) return;
     
     const { error } = await supabase
       .from('clients')
@@ -104,13 +106,13 @@ export default function ClientsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
-          <p className="text-slate-500 text-sm">Manage your customer database and contact details.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('clients.title')}</h1>
+          <p className="text-slate-500 text-sm">{t('clients.subtitle')}</p>
         </div>
         <Link href="/dashboard/clients/new">
           <Button className="flex items-center gap-2">
             <Plus size={18} />
-            Add Client
+            {t('clients.addClient')}
           </Button>
         </Link>
       </div>
@@ -122,7 +124,7 @@ export default function ClientsPage() {
         <input
           type="text"
           className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          placeholder="Search clients..."
+          placeholder={t('common.search')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -151,14 +153,14 @@ export default function ClientsPage() {
                     <button 
                       onClick={() => handleEdit(client)}
                       className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
-                      title="Edit Client"
+                      title={t('common.edit')}
                     >
                       <Edit2 size={16} />
                     </button>
                     <button 
                       onClick={() => handleDelete(client.id)}
                       className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                      title="Delete Client"
+                      title={t('common.delete')}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -194,10 +196,10 @@ export default function ClientsPage() {
           <div className="mx-auto w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-4">
             <Users size={24} className="text-slate-400" />
           </div>
-          <h3 className="text-sm font-medium text-slate-900">No clients found</h3>
-          <p className="text-sm mt-1">Start by adding your first client to the system.</p>
+          <h3 className="text-sm font-medium text-slate-900">{t('clients.empty')}</h3>
+          <p className="text-sm mt-1">{t('clients.emptyDesc')}</p>
           <Link href="/dashboard/clients/new" className="mt-4 inline-block">
-            <Button variant="outline" size="sm">Add New Client</Button>
+            <Button variant="outline" size="sm">{t('clients.addClient')}</Button>
           </Link>
         </Card>
       )}
@@ -206,43 +208,43 @@ export default function ClientsPage() {
         <Modal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
-          title="Edit Client"
+          title={t('common.edit')}
           maxWidth="xl"
         >
           <form onSubmit={handleUpdate} className="space-y-4 p-1">
             <Input 
               name="name" 
-              label="Client Name" 
+              label={t('clients.name')} 
               defaultValue={editingClient.name} 
               required 
             />
             <Input 
               name="email" 
-              label="Email Address" 
+              label={t('clients.email')} 
               type="email" 
               defaultValue={editingClient.email} 
               required 
             />
             <Input 
               name="phone" 
-              label="Phone Number" 
+              label={t('clients.phone')} 
               defaultValue={editingClient.phone || ''} 
             />
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Address</label>
+              <label className="text-sm font-medium text-slate-700">{t('clients.address')}</label>
               <textarea 
                 name="address"
                 defaultValue={editingClient.address || ''}
                 className="flex min-h-[100px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Client's billing address..."
+                placeholder={t('clients.addressPlaceholder') || "Client's billing address..."}
               />
             </div>
             <div className="pt-4 flex justify-end gap-3">
               <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" isLoading={isSubmitting}>
-                Update Client
+                {t('common.save')}
               </Button>
             </div>
           </form>

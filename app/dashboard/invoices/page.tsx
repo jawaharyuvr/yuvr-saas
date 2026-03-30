@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency, formatDate, cn } from '@/utils/format';
 import { Modal } from '@/components/ui/Modal';
 import { generateInvoicePDF } from '@/utils/pdf';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface Invoice {
   id: string;
@@ -23,6 +24,7 @@ interface Invoice {
 }
 
 export default function InvoicesPage() {
+  const { t } = useTranslation();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
@@ -90,7 +92,7 @@ export default function InvoicesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this invoice?')) return;
+    if (!confirm(t('invoices.deleteConfirm') || 'Are you sure you want to delete this invoice?')) return;
     
     const { error } = await supabase
       .from('invoices')
@@ -175,8 +177,8 @@ export default function InvoicesPage() {
   };
 
   const sendEmail = async () => {
-    if (!emailTo || !emailTo.includes('@')) return alert('Please enter a valid email address');
-    if (!selectedEmailInvoice) return alert('No invoice selected');
+    if (!emailTo || !emailTo.includes('@')) return alert(t('contact.alert_fill') || 'Please enter a valid email address');
+    if (!selectedEmailInvoice) return alert(t('invoices.noInvoiceSelected') || 'No invoice selected');
     
     setEmailSending(true);
     try {
@@ -240,13 +242,13 @@ export default function InvoicesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Invoices</h1>
-          <p className="text-slate-500 text-sm">Manage and track your sent invoices.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('invoices.title')}</h1>
+          <p className="text-slate-500 text-sm">{t('invoices.subtitle')}</p>
         </div>
         <Link href="/dashboard/invoices/new">
           <Button className="flex items-center gap-2">
             <Plus size={18} />
-            New Invoice
+            {t('invoices.newInvoice')}
           </Button>
         </Link>
       </div>
@@ -264,12 +266,12 @@ export default function InvoicesPage() {
               <table className="w-full text-left">
                 <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider">
                   <tr>
-                    <th className="px-6 py-3 font-medium">Invoice Number</th>
-                    <th className="px-6 py-3 font-medium">Client</th>
-                    <th className="px-6 py-3 font-medium">Due Date</th>
-                    <th className="px-6 py-3 font-medium text-right">Amount</th>
-                    <th className="px-6 py-3 font-medium text-center">Status</th>
-                    <th className="px-6 py-3 font-medium text-right">Actions</th>
+                    <th className="px-6 py-3 font-medium">{t('invoices.invoiceNumber')}</th>
+                    <th className="px-6 py-3 font-medium">{t('sidebar.clients')}</th>
+                    <th className="px-6 py-3 font-medium">{t('invoices.dueDate')}</th>
+                    <th className="px-6 py-3 font-medium text-right">{t('common.amount')}</th>
+                    <th className="px-6 py-3 font-medium text-center">{t('common.status')}</th>
+                    <th className="px-6 py-3 font-medium text-right">{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -343,10 +345,10 @@ export default function InvoicesPage() {
           <div className="mx-auto w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-4">
             <FileText size={24} className="text-slate-400" />
           </div>
-          <h3 className="text-sm font-medium text-slate-900">No invoices yet</h3>
-          <p className="text-sm mt-1">Ready to get paid? Create your first invoice now.</p>
+          <h3 className="text-sm font-medium text-slate-900">{t('invoices.empty')}</h3>
+          <p className="text-sm mt-1">{t('invoices.emptyDesc')}</p>
           <Link href="/dashboard/invoices/new" className="mt-4 inline-block">
-            <Button variant="outline" size="sm">Create Invoice</Button>
+            <Button variant="outline" size="sm">{t('invoices.newInvoice')}</Button>
           </Link>
         </Card>
       )}
@@ -354,7 +356,7 @@ export default function InvoicesPage() {
         <Modal 
           isOpen={isPreviewOpen} 
           onClose={() => setIsPreviewOpen(false)} 
-          title="Invoice Preview"
+          title={t('settings.livePreview')}
           maxWidth="2xl"
         >
           <div className={`space-y-0 overflow-hidden rounded-xl border transition-all duration-500 relative ${
@@ -395,7 +397,7 @@ export default function InvoicesPage() {
                       userProfile?.invoice_template === 'elegant_luxury' ? 'tracking-[0.3em] text-slate-800' : 'text-slate-900'
                     }`} style={{ 
                       color: (userProfile?.invoice_template === 'bold_modern' || userProfile?.invoice_template === 'creative_agency') ? userProfile?.brand_color : undefined 
-                    }}>INVOICE</h4>
+                    }}>{t('invoices.title').toUpperCase()}</h4>
                     <p className="text-slate-400 font-bold mt-2 uppercase tracking-tight text-sm">#{selectedInvoice.invoice_number}</p>
                   </div>
                </div>
@@ -405,7 +407,7 @@ export default function InvoicesPage() {
                 userProfile?.invoice_template === 'dark_mode' ? 'border-slate-700' : 'border-slate-100'
               }`}>
                  <div className="space-y-2">
-                    <p className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Bill To</p>
+                    <p className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">{t('invoices.preview.billTo')}</p>
                     <p className={`font-black text-lg leading-tight ${userProfile?.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-900'}`}>{selectedInvoice.client?.name}</p>
                     <div className="text-slate-500 space-y-1 text-sm">
                       <p>{selectedInvoice.client?.email}</p>
@@ -414,11 +416,11 @@ export default function InvoicesPage() {
                  </div>
                  <div className="text-right space-y-3">
                     <div className="flex justify-between pl-12">
-                      <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Issue Date</span>
+                      <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">{t('invoices.preview.issueDate')}</span>
                       <span className={`font-medium ${userProfile?.invoice_template === 'dark_mode' ? 'text-slate-200' : 'text-slate-700'}`}>{formatDate(selectedInvoice.created_at)}</span>
                     </div>
                     <div className="flex justify-between pl-12">
-                      <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Due Date</span>
+                      <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">{t('invoices.preview.dueDate')}</span>
                       <span className="font-bold text-lg" style={{ color: userProfile?.brand_color }}>{formatDate(selectedInvoice.due_date)}</span>
                     </div>
                  </div>
@@ -433,11 +435,11 @@ export default function InvoicesPage() {
                    backgroundColor: (userProfile?.invoice_template !== 'scandinavian_minimal' && userProfile?.invoice_template !== 'dark_mode') ? `${userProfile?.brand_color}15` : undefined,
                    color: (userProfile?.invoice_template !== 'scandinavian_minimal' && userProfile?.invoice_template !== 'dark_mode') ? userProfile?.brand_color : undefined
                  }}>
-                    <span className="flex-1">Description</span>
+                    <span className="flex-1">{t('invoices.preview.description')}</span>
                     <div className="flex gap-12 text-right">
-                      <span className="w-12">Qty</span>
-                      <span className="w-24">Price</span>
-                      <span className="w-24">Total</span>
+                      <span className="w-12">{t('invoices.preview.qty')}</span>
+                      <span className="w-24">{t('invoices.preview.price')}</span>
+                      <span className="w-24">{t('invoices.preview.total')}</span>
                     </div>
                  </div>
                  
@@ -475,18 +477,18 @@ export default function InvoicesPage() {
                       return (
                         <>
                           <div className="flex justify-between text-slate-400 font-bold uppercase text-[10px] tracking-wider">
-                             <span>Subtotal</span>
+                             <span>{t('invoices.preview.subtotal')}</span>
                              <span className={userProfile?.invoice_template === 'dark_mode' ? 'text-slate-300' : 'text-slate-700'}>{formatCurrency(subtotal, selectedInvoice.currency)}</span>
                           </div>
                           {selectedInvoice.tax_rate > 0 && (
                             <div className="flex justify-between text-slate-400 font-bold uppercase text-[10px] tracking-wider">
-                               <span>Tax ({selectedInvoice.tax_rate}%)</span>
+                               <span>{t('invoices.preview.tax')} ({selectedInvoice.tax_rate}%)</span>
                                <span className={userProfile?.invoice_template === 'dark_mode' ? 'text-slate-300' : 'text-slate-700'}>{formatCurrency(taxAmount, selectedInvoice.currency)}</span>
                             </div>
                           )}
                           <div className={`h-px ${userProfile?.invoice_template === 'dark_mode' ? 'bg-slate-700' : 'bg-slate-200'} my-2`}></div>
                           <div className="flex justify-between items-center">
-                             <span className="font-black text-xs tracking-widest text-slate-400 uppercase">Total Due</span>
+                             <span className="font-black text-xs tracking-widest text-slate-400 uppercase">{t('invoices.preview.totalDue')}</span>
                              <span className="font-black text-2xl" style={{ color: userProfile?.invoice_template === 'dark_mode' ? '#fff' : userProfile?.brand_color }}>
                                {formatCurrency(selectedInvoice.total_amount, selectedInvoice.currency)}
                              </span>
@@ -502,13 +504,13 @@ export default function InvoicesPage() {
                  <div className="space-y-6">
                     <div className="w-48 h-px bg-slate-300 opacity-30"></div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-[0.2em]">Authorized Signature</p>
-                      <p className="text-[10px] text-slate-500 font-medium italic">Yuvr-SaaS Certified Invoicing</p>
+                      <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-[0.2em]">{t('invoices.preview.authorized')}</p>
+                      <p className="text-[10px] text-slate-500 font-medium italic">{t('invoices.preview.certified')}</p>
                     </div>
                  </div>
                  <div className="text-right">
                     <p className="text-[11px] text-slate-400 font-medium max-w-[200px] leading-relaxed italic">
-                      Thank you for your business. For any inquiries, please contact {userProfile?.company_name || 'our support'}.
+                      {t('invoices.preview.thankYou')} {userProfile?.company_name || 'our support'}.
                     </p>
                  </div>
               </div>
@@ -519,10 +521,10 @@ export default function InvoicesPage() {
               userProfile?.invoice_template === 'dark_mode' ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50/50 border-slate-100'
             }`}>
               <Button onClick={() => handleDownload(selectedInvoice)} className="flex items-center gap-2 px-8 shadow-lg shadow-indigo-500/20">
-                <Download size={18} /> Download PDF
+                <Download size={18} /> {t('invoices.downloadPdf')}
               </Button>
               <Button variant="outline" onClick={() => setIsPreviewOpen(false)} className="bg-white">
-                Close
+                {t('invoices.close')}
               </Button>
             </div>
           </div>
@@ -533,7 +535,7 @@ export default function InvoicesPage() {
       <Modal
         isOpen={isEmailModalOpen}
         onClose={() => setIsEmailModalOpen(false)}
-        title="Send Invoice via Email"
+        title={t('sidebar.invoices')}
         maxWidth="sm"
       >
         {emailSent ? (
@@ -542,18 +544,18 @@ export default function InvoicesPage() {
               <CheckCircle2 size={28} className="text-emerald-500" />
             </div>
             <div className="text-center">
-              <p className="text-lg font-semibold text-slate-900">Email Sent!</p>
+              <p className="text-lg font-semibold text-slate-900">{t('invoices.emailSent')}</p>
               <p className="text-sm text-slate-500 mt-1">
-                Invoice <span className="font-medium">{emailInvoiceNumber}</span> has been sent to{' '}
+                {t('sidebar.invoices')} <span className="font-medium">{emailInvoiceNumber}</span> has been sent to{' '}
                 <span className="font-medium">{emailTo}</span>
               </p>
             </div>
-            <Button variant="outline" onClick={() => setIsEmailModalOpen(false)} className="mt-2">Close</Button>
+            <Button variant="outline" onClick={() => setIsEmailModalOpen(false)} className="mt-2">{t('invoices.close')}</Button>
           </div>
         ) : (
           <div className="space-y-5">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Recipient Email</label>
+              <label className="text-sm font-medium text-slate-700">{t('invoices.recipientEmail')}</label>
               <input
                 type="email"
                 className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -562,17 +564,17 @@ export default function InvoicesPage() {
                 onChange={(e) => setEmailTo(e.target.value)}
                 autoFocus
               />
-              <p className="text-xs text-slate-400">Pre-filled from the client. You can edit it.</p>
+              <p className="text-xs text-slate-400">{t('invoices.emailPreFilled')}</p>
             </div>
             <div className="bg-slate-50 rounded-lg p-4 space-y-1">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sending</p>
-              <p className="text-sm font-semibold text-slate-900">Invoice {emailInvoiceNumber}</p>
-              <p className="text-sm text-slate-500">Total: <span className="font-medium text-slate-900">{formatCurrency(emailTotal, emailCurrency)}</span></p>
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t('invoices.sending')}</p>
+              <p className="text-sm font-semibold text-slate-900">{t('sidebar.invoices')} {emailInvoiceNumber}</p>
+              <p className="text-sm text-slate-500">{t('invoices.total')}: <span className="font-medium text-slate-900">{formatCurrency(emailTotal, emailCurrency)}</span></p>
             </div>
             <div className="flex gap-3 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setIsEmailModalOpen(false)}>Cancel</Button>
+              <Button variant="outline" className="flex-1" onClick={() => setIsEmailModalOpen(false)}>{t('common.cancel')}</Button>
               <Button className="flex-1 flex items-center justify-center gap-2" onClick={sendEmail} isLoading={emailSending}>
-                <Send size={16} /> Send Email
+                <Send size={16} /> {t('invoices.sendEmail')}
               </Button>
             </div>
           </div>

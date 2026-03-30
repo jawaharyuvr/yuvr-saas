@@ -13,7 +13,11 @@ import { useEffect } from 'react';
 import { clearLocalSession } from '@/lib/sessionManager';
 import { DynamicBackground } from '@/components/ui/DynamicBackground';
 
+import { useTranslation } from '@/contexts/LanguageContext';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+
 export default function SignupPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -55,19 +59,19 @@ export default function SignupPage() {
 
     if (checkError) {
       console.error('Validation check error:', checkError);
-      setError('Error validating user details. Please try again.');
+      setError(t('auth.errorValidating'));
       setLoading(false);
       return;
     }
 
     if (existsData?.emailExists) {
-      setError('This email is already registered. Please sign in instead.');
+      setError(t('auth.emailExists'));
       setLoading(false);
       return;
     }
 
     if (existsData?.usernameExists) {
-      setError('This username is already taken. Please choose another one.');
+      setError(t('auth.usernameExists'));
       setLoading(false);
       return;
     }
@@ -90,7 +94,7 @@ export default function SignupPage() {
       setLoading(false);
     } else {
       // The database trigger 'on_auth_user_created' automatically handles profile insertion.
-      router.push('/login?message=Account created successfully. Please log in.');
+      router.push(`/login?message=${encodeURIComponent(t('auth.signupSuccess'))}`);
     }
   };
 
@@ -103,19 +107,22 @@ export default function SignupPage() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md"
       >
-        <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors mb-8 group">
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Back to Home</span>
-        </Link>
+        <div className="flex items-center justify-between mb-8">
+          <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span>{t('auth.backToHome')}</span>
+          </Link>
+          <LanguageSwitcher />
+        </div>
 
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-indigo-600">Yuvr's</h1>
-          <p className="text-slate-500 mt-2 text-sm">Start generating professional invoices</p>
+          <h1 className="text-3xl font-bold text-indigo-600">{t('common.brandName')}</h1>
+          <p className="text-slate-500 mt-2 text-sm">{t('auth.signupSubtitle')}</p>
         </div>
 
         <Card>
           <CardHeader>
-            <h2 className="text-xl font-semibold text-slate-900">Create Account</h2>
+            <h2 className="text-xl font-semibold text-slate-900">{t('auth.signup')}</h2>
           </CardHeader>
           <CardContent>
             <Button 
@@ -143,7 +150,7 @@ export default function SignupPage() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
-              Sign up with Google
+              {t('auth.signupCta')}
             </Button>
             
             <div className="relative mb-4">
@@ -151,20 +158,20 @@ export default function SignupPage() {
                 <span className="w-full border-t border-slate-200" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-slate-500">Or continue with</span>
+                <span className="bg-white px-2 text-slate-500">{t('auth.orContinue')}</span>
               </div>
             </div>
 
             <form onSubmit={handleSignup} className="space-y-4">
               <Input
-                label="Full Name"
+                label={t('auth.fullName')}
                 placeholder="John Doe"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
               />
               <Input
-                label="Username"
+                label={t('auth.username')}
                 type="text"
                 placeholder="yuvr_user"
                 value={username}
@@ -172,7 +179,7 @@ export default function SignupPage() {
                 required
               />
               <Input
-                label="Email"
+                label={t('auth.email')}
                 type="email"
                 placeholder="you@example.com"
                 value={email}
@@ -180,28 +187,28 @@ export default function SignupPage() {
                 required
               />
               <Input
-                label="Password"
+                label={t('auth.password')}
                 type="password"
-                placeholder="••••••••"
+                placeholder={t('auth.passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
               {error && (
-                <p className="text-sm font-medium text-rose-500 bg-rose-50 p-3 rounded-lg">
+                <p className="text-sm font-medium text-rose-500 bg-rose-50 p-3 rounded-lg border border-rose-100">
                   {error}
                 </p>
               )}
               <Button type="submit" className="w-full" isLoading={loading}>
-                Create Account
+                {t('auth.createAccount')}
               </Button>
             </form>
           </CardContent>
           <CardFooter className="text-center">
             <p className="text-sm text-slate-500">
-              Already have an account?{' '}
+              {t('auth.alreadyAccount')}{' '}
               <Link href="/login" className="text-indigo-600 font-medium hover:underline">
-                Sign in
+                {t('auth.login')}
               </Link>
             </p>
           </CardFooter>
