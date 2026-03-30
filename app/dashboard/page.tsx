@@ -422,7 +422,7 @@ export default function DashboardPage() {
                       <th className="px-6 py-3 font-medium bg-slate-50 whitespace-nowrap">{t('sidebar.invoices')}</th>
                       <th className="px-6 py-3 font-medium bg-slate-50 whitespace-nowrap">{t('sidebar.clients')}</th>
                       <th className="px-6 py-3 font-medium text-right bg-slate-50 whitespace-nowrap">{t('invoices.amount')}</th>
-                      <th className="px-6 py-3 font-medium text-center bg-slate-50 whitespace-nowrap">{t('invoices.status')}</th>
+                      <th className="px-6 py-3 font-medium text-center bg-slate-50 whitespace-nowrap">{t('common.status')}</th>
                       <th className="px-6 py-3 font-medium text-right bg-slate-50 whitespace-nowrap">{t('invoices.actions')}</th>
                     </tr>
                   </thead>
@@ -442,7 +442,7 @@ export default function DashboardPage() {
                             "px-2 py-1 rounded-full text-xs font-medium",
                             inv.status === 'paid' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                           )}>
-                            {inv.status === 'paid' ? t('invoices.paid') : t('invoices.unpaid')}
+                            {inv.status === 'paid' ? t('invoices.status.paid') : t('invoices.unpaid')}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right text-slate-400 whitespace-nowrap">

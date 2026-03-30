@@ -11,7 +11,8 @@
     "status": "Statut",
     "amount": "Montant",
     "date": "Date",
-    "back": "Retour"
+    "back": "Retour",
+    "viewAll": "Voir Tout"
   },
   "sidebar": {
     "dashboard": "Tableau de bord",
@@ -40,7 +41,8 @@
     "status": "Statut",
     "active": "Actif",
     "inactive": "Inactif",
-    "addressPlaceholder": "Adresse de facturation du client..."
+    "addressPlaceholder": "Adresse de facturation du client...",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce client ?"
   },
   "invoices": {
     "title": "Factures",
@@ -53,6 +55,16 @@
     "emailPreFilled": "Pré-rempli par le client. Vous pouvez le modifier.",
     "sending": "Envoi en cours...",
     "total": "Total",
+    "invoiceNumber": "Numéro de Facture",
+    "dueDate": "Date d'Échéance",
+    "amount": "Montant",
+    "actions": "Actions",
+    "unpaid": "Non Payé",
+    "downloadPdf": "Télécharger PDF",
+    "sendEmail": "Envoyer Email",
+    "noInvoiceSelected": "Aucune facture sélectionnée",
+    "empty": "Aucune facture trouvée",
+    "emptyDesc": "Créez votre première facture pour commencer.",
     "status": {
       "paid": "Payé",
       "pending": "En attente",
@@ -72,7 +84,9 @@
       "authorized": "Signature autorisée",
       "certified": "Certifié par Yuvr-SaaS",
       "thankYou": "Merci pour votre confiance. Pour toute demande, veuillez contacter"
-    }
+    },
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette facture ?",
+    "noInvoices": "Aucune facture trouvée"
   },
   "dashboard": {
     "welcome": "Bienvenue de nouveau",
@@ -81,7 +95,12 @@
     "activeClients": "Clients Actifs",
     "pendingInvoices": "Factures en attente",
     "paidInvoices": "Factures Payées",
-    "totalExpenses": "Total des Dépenses"
+    "totalExpenses": "Total des Dépenses",
+    "recentInvoices": "Factures Récentes",
+    "topClients": "Meilleurs Clients",
+    "manageClients": "Gérer les Clients",
+    "noClients": "Pas encore de clients",
+    "addClientBtn": "Ajouter un Client"
   },
   "settings": {
     "title": "Paramètres",
@@ -168,7 +187,9 @@
       "sampleDesc1": "Développement et Conseil",
       "sampleItem2": "Frais de licence",
       "sampleDesc2": "Abonnement annuel"
-    }
+    },
+    "realTimeSync": "Synchronisation en temps réel",
+    "supportActive": "Support Actif"
   },
   "inventory": {
     "title": "Gestion des stocks",
@@ -189,13 +210,21 @@
     "basePrice": "Prix de base",
     "initialStock": "Stock initial",
     "empty": "Votre inventaire est vide",
-    "emptyDesc": "Commencez à ajouter des produits pour suivre les niveaux de stock."
+    "emptyDesc": "Commencez à ajouter des produits pour suivre les niveaux de stock.",
+    "delete_confirm": "Êtes-vous sûr de vouloir supprimer ce produit ?",
+    "no_sku": "Sans UGS",
+    "units": {
+      "pcs": "Pièces",
+      "kg": "Kilogrammes",
+      "mtr": "Mètres",
+      "box": "Boîtes"
+    }
   },
   "expenses": {
     "title": "Suivi des dépenses",
     "subtitle": "Surveillez vos paiements sortants et vos frais généraux à l'échelle mondiale.",
     "logExpense": "Enregistrer une dépense",
-    "totalExpenses": "Dépenses totales",
+    "totalExpenses": "Dépenses Totales",
     "recentTransactions": "Transactions récentes",
     "convertedTo": "Converti en",
     "category": "Catégorie",
@@ -207,7 +236,19 @@
     "noExpenses": "Aucune dépense enregistrée",
     "noExpensesDesc": "Commencez à suivre vos coûts opérationnels.",
     "newExpense": "Enregistrer une nouvelle dépense",
-    "saveExpense": "Enregistrer la dépense"
+    "saveExpense": "Enregistrer la dépense",
+    "cats": {
+      "rent": "Loyer",
+      "salaries": "Salaires",
+      "utilities": "Utilitaires",
+      "inventory": "Inventaire",
+      "marketing": "Marketing",
+      "software": "Logiciel",
+      "others": "Autres"
+    },
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette dépense ?",
+    "noDescription": "Aucune description",
+    "descPlaceholder": "Entrez la description..."
   },
   "exchange": {
     "title": "Historique des taux de change",
@@ -349,7 +390,8 @@
       "login_btn": "Continuer vers la connexion",
       "errorExpired": "Votre code de récupération a expiré. Veuillez en demander un nouveau.",
       "errorToken": "Jeton expiré. Veuillez en demander un nouveau."
-    }
+    },
+    "loginRequired": "Connexion Requise"
   },
   "legal": {
     "privacy": "Politique de confidentialité",
@@ -390,5 +432,17 @@
     "submit_btn": "Envoyer le message",
     "placeholder_msg": "Comment pouvons-nous vous aider ?",
     "alert_fill": "Veuillez remplir tous les champs."
+  },
+  "analytics": {
+    "title": "Analyse des affaires",
+    "subtitle": "Suivez la performance financière de votre agence",
+    "outstanding": "Total Impayé",
+    "avgPaymentTime": "Temps de Paiement Moyen",
+    "revenueOverview": "Aperçu des Revenus",
+    "period": "Période",
+    "revenue": "Revenus",
+    "paymentStatus": "Statut des Paiements",
+    "pendingPayment": "Paiement en Attente",
+    "exportCsv": "Exporter CSV"
   }
 }

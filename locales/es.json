@@ -11,7 +11,8 @@
     "status": "Estado",
     "amount": "Monto",
     "date": "Fecha",
-    "back": "Volver"
+    "back": "Atrás",
+    "viewAll": "Ver Todo"
   },
   "sidebar": {
     "dashboard": "Tablero",
@@ -40,7 +41,8 @@
     "status": "Estado",
     "active": "Activo",
     "inactive": "Inactivo",
-    "addressPlaceholder": "Dirección de facturación del cliente..."
+    "addressPlaceholder": "Dirección de facturación del cliente...",
+    "deleteConfirm": "¿Seguro que quieres eliminar este cliente?"
   },
   "invoices": {
     "title": "Facturas",
@@ -53,6 +55,16 @@
     "emailPreFilled": "Pre-llenado del cliente. Puede editarlo.",
     "sending": "Enviando...",
     "total": "Total",
+    "invoiceNumber": "Número de Factura",
+    "dueDate": "Fecha de Vencimiento",
+    "amount": "Cantidad",
+    "actions": "Acciones",
+    "unpaid": "No Pagado",
+    "downloadPdf": "Descargar PDF",
+    "sendEmail": "Enviar Correo",
+    "noInvoiceSelected": "Ninguna factura seleccionada",
+    "empty": "No se encontraron facturas",
+    "emptyDesc": "Crea tu primera factura para empezar.",
     "status": {
       "paid": "Pagado",
       "pending": "Pendiente",
@@ -72,7 +84,9 @@
       "authorized": "Firma autorizada",
       "certified": "Certificado por Yuvr-SaaS",
       "thankYou": "Gracias por su negocio. Para cualquier consulta, por favor contacte a"
-    }
+    },
+    "deleteConfirm": "¿Seguro que quieres eliminar esta factura?",
+    "noInvoices": "No se encontraron facturas"
   },
   "dashboard": {
     "welcome": "Bienvenido de nuevo",
@@ -81,7 +95,12 @@
     "activeClients": "Clientes Activos",
     "pendingInvoices": "Facturas Pendientes",
     "paidInvoices": "Facturas Pagadas",
-    "totalExpenses": "Gastos Totales"
+    "totalExpenses": "Gastos Totales",
+    "recentInvoices": "Facturas Recientes",
+    "topClients": "Mejores Clientes",
+    "manageClients": "Gestionar Clientes",
+    "noClients": "Todavía no hay clientes",
+    "addClientBtn": "Añadir Cliente"
   },
   "settings": {
     "title": "Ajustes",
@@ -168,7 +187,9 @@
       "sampleDesc1": "Desarrollo y Consultoría",
       "sampleItem2": "Cuota de Licencia",
       "sampleDesc2": "Suscripción anual"
-    }
+    },
+    "realTimeSync": "Sincronización en tiempo real",
+    "supportActive": "Soporte Activo"
   },
   "inventory": {
     "title": "Gestión de Inventario",
@@ -189,7 +210,15 @@
     "basePrice": "Precio Base",
     "initialStock": "Stock Inicial",
     "empty": "Su inventario está vacío",
-    "emptyDesc": "Empiece a agregar productos para rastrear los niveles de stock."
+    "emptyDesc": "Empiece a agregar productos para rastrear los niveles de stock.",
+    "delete_confirm": "¿Seguro que quieres eliminar este producto?",
+    "no_sku": "Sin SKU",
+    "units": {
+      "pcs": "Piezas",
+      "kg": "Kilogramos",
+      "mtr": "Metros",
+      "box": "Cajas"
+    }
   },
   "expenses": {
     "title": "Seguimiento de Gastos",
@@ -207,7 +236,19 @@
     "noExpenses": "No hay gastos registrados",
     "noExpensesDesc": "Empiece a rastrear sus costos operativos.",
     "newExpense": "Registrar Nuevo Gasto",
-    "saveExpense": "Guardar Gasto"
+    "saveExpense": "Guardar Gasto",
+    "cats": {
+      "rent": "Alquiler",
+      "salaries": "Salarios",
+      "utilities": "Servicios",
+      "inventory": "Inventario",
+      "marketing": "Marketing",
+      "software": "Software",
+      "others": "Otros"
+    },
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar este gasto?",
+    "noDescription": "Sin descripción",
+    "descPlaceholder": "Ingresar descripción..."
   },
   "exchange": {
     "title": "Historial de Tipos de Cambio",
@@ -349,7 +390,8 @@
       "login_btn": "Continuar al inicio de sesión",
       "errorExpired": "Su código de recuperación ha caducado. Por favor, solicite uno nuevo.",
       "errorToken": "Token caducado. Por favor, solicite uno nuevo."
-    }
+    },
+    "loginRequired": "Inicio de sesión requerido"
   },
   "legal": {
     "privacy": "Política de Privacidad",
@@ -390,5 +432,17 @@
     "submit_btn": "Enviar mensaje",
     "placeholder_msg": "¿Cómo podemos ayudarle?",
     "alert_fill": "Por favor, complete todos los campos."
+  },
+  "analytics": {
+    "title": "Análisis de negocios",
+    "subtitle": "Haz un seguimiento del rendimiento financiero",
+    "outstanding": "Total Pendiente",
+    "avgPaymentTime": "Tiempo Promedio",
+    "revenueOverview": "Resumen de Ingresos",
+    "period": "Período",
+    "revenue": "Ingresos",
+    "paymentStatus": "Estado de Pago",
+    "pendingPayment": "Pago Pendiente",
+    "exportCsv": "Exportar CSV"
   }
 }

@@ -291,7 +291,7 @@ export default function InvoicesPage() {
                           "px-2 py-1 rounded-full text-xs font-medium",
                           inv.status === 'paid' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                         )}>
-                          {inv.status}
+                          {inv.status === 'paid' ? t('invoices.status.paid') : t('invoices.unpaid')}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
