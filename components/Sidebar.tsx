@@ -16,7 +16,8 @@ import {
   UserCheck,
   Globe,
   BarChart3,
-  Activity
+  Activity,
+  FileSignature
 } from 'lucide-react';
 import { cn } from '@/utils/format';
 import { supabase } from '@/lib/supabase';
@@ -29,11 +30,26 @@ export function Sidebar() {
   const { t } = useTranslation();
   const pathname = usePathname();
   const router = useRouter();
+  const [userRole, setUserRole] = React.useState<string>('admin');
+
+  React.useEffect(() => {
+    checkRole();
+  }, []);
+
+  const checkRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: staffData } = await supabase.from('staff').select('role').eq('user_id', user.id).single();
+    if (staffData?.role) {
+      setUserRole(staffData.role);
+    }
+  };
 
   const navItems = [
     { name: t('sidebar.dashboard'), href: '/dashboard', icon: LayoutDashboard },
     { name: t('sidebar.clients'), href: '/dashboard/clients', icon: Users },
     { name: t('sidebar.invoices'), href: '/dashboard/invoices', icon: FileText },
+    { name: t('sidebar.estimates'), href: '/dashboard/estimates', icon: FileSignature },
     { name: t('sidebar.inventory'), href: '/dashboard/inventory', icon: Package },
     { name: t('sidebar.expenses'), href: '/dashboard/expenses', icon: TrendingDown },
     { name: t('sidebar.staff'), href: '/dashboard/settings/staff', icon: UserCheck },
@@ -80,7 +96,15 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {navItems.filter(item => {
+           if (userRole === 'staff') {
+             return ['/dashboard', '/dashboard/clients', '/dashboard/invoices'].includes(item.href);
+           }
+           if (userRole === 'viewer') {
+             return ['/dashboard'].includes(item.href);
+           }
+           return true; 
+        }).map((item) => {
           const isActive = item.href === '/dashboard'
             ? pathname === '/dashboard'
             : item.name === 'Settings' 

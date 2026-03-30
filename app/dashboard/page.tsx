@@ -27,6 +27,9 @@ import { generateInvoicePDF } from '@/utils/pdf';
 import { Modal } from '@/components/ui/Modal';
 import { formatDate } from '@/utils/format';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { PageTransition } from '@/components/ui/PageTransition';
+import { TiltCard } from '@/components/ui/TiltCard';
+import { motion } from 'framer-motion';
 
 import { getLiveRate, syncExchangeRates } from '@/utils/rateSync';
 
@@ -357,7 +360,8 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-8">
+    <PageTransition>
+      <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{t('sidebar.dashboard')}</h1>
@@ -388,20 +392,29 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat) => (
-          <Card key={stat.label}>
-            <CardContent className="p-6">
-               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{stat.label}</p>
-                  <p className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</p>
-                </div>
-                <div className={cn('p-3 rounded-lg', stat.bg)}>
-                  <stat.icon className={stat.color} size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {statCards.map((stat, index) => (
+          <motion.div 
+            key={stat.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1, type: "spring" }}
+          >
+            <TiltCard>
+              <Card>
+                <CardContent className="p-6 cursor-pointer">
+                   <div className="flex items-center justify-between pointer-events-none">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{stat.label}</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</p>
+                    </div>
+                    <div className={cn('p-3 rounded-lg', stat.bg)}>
+                      <stat.icon className={stat.color} size={24} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TiltCard>
+          </motion.div>
         ))}
       </div>
 
@@ -427,8 +440,14 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {recentInvoices.map((inv) => (
-                      <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                    {recentInvoices.map((inv, index) => (
+                      <motion.tr 
+                        key={inv.id} 
+                        initial={{ opacity: 0, x: -15 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="hover:bg-slate-50 transition-colors"
+                      >
                         <td className="px-6 py-4 text-sm font-medium text-slate-900 whitespace-nowrap">{inv.invoice_number}</td>
                         <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">{inv.clients?.name || 'Deleted Client'}</td>
                         <td className="px-6 py-4 text-sm text-slate-900 font-medium text-right whitespace-nowrap">
@@ -466,7 +485,7 @@ export default function DashboardPage() {
                             </button>
                           </div>
                         </td>
-                      </tr>
+                      </motion.tr>
                     ))}
                   </tbody>
                 </table>
@@ -503,11 +522,17 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {topClients.map((client) => (
-                      <tr key={client.id} className="hover:bg-slate-50 transition-colors">
+                    {topClients.map((client, index) => (
+                      <motion.tr 
+                        key={client.id} 
+                        initial={{ opacity: 0, x: 15 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="hover:bg-slate-50 transition-colors"
+                      >
                         <td className="px-6 py-4 text-sm font-medium text-slate-900">{client.name}</td>
                         <td className="px-6 py-4 text-sm text-slate-600">{client.email}</td>
-                      </tr>
+                      </motion.tr>
                     ))}
                   </tbody>
                 </table>
@@ -528,6 +553,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ... Preview and Modal code follows ... */}
-    </div>
+      </div>
+    </PageTransition>
   );
 }

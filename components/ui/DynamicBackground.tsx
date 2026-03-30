@@ -35,14 +35,16 @@ class Particle {
     this.color = colors[Math.floor(Math.random() * colors.length)];
   }
 
-  update(cw: number, ch: number) {
+  update(cw: number, ch: number, scrollVelocityY: number = 0) {
     // Move
     this.x += this.vx;
-    this.y += this.vy;
+    this.y += this.vy - scrollVelocityY; // Inverse particle motion to screen scroll
 
-    // Bounce off edges
-    if (this.x < 0 || this.x > cw) this.vx *= -1;
-    if (this.y < 0 || this.y > ch) this.vy *= -1;
+    // Infinite wrapping instead of bouncing to simulate a running video
+    if (this.x < -this.radius) this.x = cw + this.radius;
+    if (this.x > cw + this.radius) this.x = -this.radius;
+    if (this.y < -this.radius) this.y = ch + this.radius;
+    if (this.y > ch + this.radius) this.y = -this.radius;
 
     // Mouse Interaction (repel)
     const dx = mouse.x - this.x;
@@ -84,6 +86,7 @@ export function DynamicBackground() {
     let animationFrameId: number;
     let particles: Particle[] = [];
     const PARTICLE_COUNT = 80;
+    let currentScrollVelocity = 0;
 
     const init = () => {
       particles = [];
@@ -131,11 +134,14 @@ export function DynamicBackground() {
 
       ctx.globalAlpha = 1;
 
-      // Update & draw particles
+      // Update & draw particles using smooth scroll velocity
       particles.forEach((particle) => {
-        particle.update(cw, ch);
+        particle.update(cw, ch, currentScrollVelocity * 0.4); // Apply 40% of scroll speed for parallax scaling
         particle.draw(ctx);
       });
+
+      // Gradually dampen the velocity for smooth easing when scrolling stops
+      currentScrollVelocity *= 0.95;
 
       animationFrameId = requestAnimationFrame(animate);
     };
@@ -154,17 +160,45 @@ export function DynamicBackground() {
       mouse.y = -1000;
     };
 
+    let lastScrollY = 0;
+    const scrollContainer = document.querySelector('main');
+    
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const scrollY = target.scrollTop;
+      const deltaY = scrollY - lastScrollY;
+      
+      // Inject velocity into the animation loop based on user scroll speed
+      currentScrollVelocity = deltaY;
+      lastScrollY = scrollY;
+    };
+
     init();
     animate();
 
     window.addEventListener('resize', handleResize);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseleave', handleMouseLeave);
+    
+    if(scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    } else {
+      // Fallback for document scrolling
+      window.addEventListener('scroll', () => {
+        const scrollY = window.scrollY;
+        const deltaY = scrollY - lastScrollY;
+        currentScrollVelocity = deltaY;
+        lastScrollY = scrollY;
+      }, { passive: true });
+    }
 
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseleave', handleMouseLeave);
+      if(scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      }
       cancelAnimationFrame(animationFrameId);
     };
   }, []);

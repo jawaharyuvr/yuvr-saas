@@ -10,6 +10,8 @@ import { formatCurrency, formatDate, cn } from '@/utils/format';
 import { Modal } from '@/components/ui/Modal';
 import { generateInvoicePDF } from '@/utils/pdf';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { PageTransition } from '@/components/ui/PageTransition';
+import { motion } from 'framer-motion';
 
 interface Invoice {
   id: string;
@@ -239,7 +241,8 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <PageTransition>
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{t('invoices.title')}</h1>
@@ -275,8 +278,14 @@ export default function InvoicesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {invoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-slate-50 transition-colors group">
+                  {invoices.map((inv, index) => (
+                    <motion.tr 
+                      key={inv.id} 
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05, type: 'spring', stiffness: 300, damping: 24 }}
+                      className="hover:bg-slate-50 transition-colors group relative"
+                    >
                       <td className="px-6 py-4 text-sm font-medium text-slate-900">{inv.invoice_number}</td>
                       <td className="px-6 py-4 text-sm text-slate-600">{inv.clients?.name || 'Deleted Client'}</td>
                       <td className="px-6 py-4 text-sm text-slate-500">{formatDate(inv.due_date)}</td>
@@ -333,7 +342,7 @@ export default function InvoicesPage() {
                             </button>
                          </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
@@ -580,6 +589,7 @@ export default function InvoicesPage() {
           </div>
         )}
       </Modal>
-    </div>
+      </div>
+    </PageTransition>
   );
 }

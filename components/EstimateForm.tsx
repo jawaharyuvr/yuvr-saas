@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { Modal } from '@/components/ui/Modal';
 import { getTaxRateForRegion } from '@/utils/tax';
-import { CURRENCIES } from '@/utils/constants';
+import { CURRENCIES, convertAmount } from '@/utils/constants';
 import { useRouter } from 'next/navigation';
 
 interface Client {
@@ -19,8 +19,17 @@ interface Client {
 }
 
 
+interface Product {
+  id: string;
+  name: string;
+  unit_price: number;
+  currency: string;
+  current_stock: number;
+}
+
 interface EstimateItem {
   id: string;
+  product_id?: string;
   description: string;
   quantity: number;
   price: number;
@@ -30,6 +39,7 @@ interface EstimateItem {
 export default function EstimateForm() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [clientId, setClientId] = useState('');
   const [estimateNumber, setEstimateNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -51,9 +61,15 @@ export default function EstimateForm() {
 
   useEffect(() => {
     fetchClients();
+    fetchProducts();
     fetchNextEstimateNumber();
     fetchProfile();
   }, []);
+
+  const fetchProducts = async () => {
+    const { data } = await supabase.from('products').select('id, name, unit_price, current_stock, currency');
+    if (data) setProducts(data);
+  };
 
   const fetchProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -129,7 +145,20 @@ export default function EstimateForm() {
 
   const updateItem = (id: string, field: keyof EstimateItem, value: any) => {
     const val = (field === 'quantity' || field === 'price') ? Number(value) : value;
-    setItems(items.map(item => item.id === id ? { ...item, [field]: val } : item));
+    setItems(items.map(item => {
+      if (item.id === id) {
+        const updated = { ...item, [field]: val };
+        if (field === 'product_id') {
+          const product = products.find(p => p.id === value);
+          if (product) {
+            updated.description = product.name;
+            updated.price = convertAmount(product.unit_price, product.currency || 'USD', currency);
+          }
+        }
+        return updated;
+      }
+      return item;
+    }));
   };
 
   const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
@@ -287,13 +316,23 @@ export default function EstimateForm() {
                   {items.map((item) => (
                     <tr key={item.id}>
                       <td className="px-6 py-4">
-                        <input
-                          type="text"
-                          className="w-full bg-transparent focus:outline-none text-sm"
-                          placeholder="Item description..."
-                          value={item.description}
-                          onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                        />
+                        <div className="flex flex-col gap-1">
+                          <select 
+                            className="text-xs font-bold text-indigo-600 bg-transparent border-none focus:ring-0 p-0 cursor-pointer"
+                            value={item.product_id || ''}
+                            onChange={(e) => updateItem(item.id, 'product_id', e.target.value)}
+                          >
+                            <option value="">Custom Item...</option>
+                            {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.current_stock} in stock)</option>)}
+                          </select>
+                          <input
+                            type="text"
+                            className="w-full bg-transparent focus:outline-none text-sm placeholder:text-slate-300"
+                            placeholder="Item description..."
+                            value={item.description}
+                            onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                          />
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <input
