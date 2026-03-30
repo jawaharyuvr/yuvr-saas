@@ -158,6 +158,8 @@ export default function InvoiceForm() {
 
   const handleSave = async () => {
     if (!clientId || !dueDate) return alert('Please fill in all required fields');
+    const today = new Date().toISOString().split('T')[0];
+    if (dueDate < today) return alert('Due date cannot be in the past. Please select today or a future date.');
     if (items.some(item => !item.description || item.price <= 0)) return alert('Items must have description and price');
     
     setLoading(true);
@@ -214,6 +216,7 @@ export default function InvoiceForm() {
       client: { name: clients.find(c => c.id === clientId)?.name || 'Client', email: clients.find(c => c.id === clientId)?.email || '' },
       items: items.map(i => ({ description: i.description, quantity: i.quantity, price: i.price })),
       taxRate, total, currency, logoUrl: userProfile?.logo_url, companyName: userProfile?.company_name,
+      companyPhone: userProfile?.phone,
       brandColor: userProfile?.brand_color, customFont: userProfile?.custom_font, template: template,
       upiId: userProfile?.upi_id, qrCodeEnabled: userProfile?.qr_code_enabled
     };
@@ -233,7 +236,14 @@ export default function InvoiceForm() {
                 </select>
               </div>
              <Input label={t('sidebar.invoices')} ref={invoiceNumberRef} value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
-             <Input label={t('common.date')} type="date" ref={dueDateRef} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+             <Input 
+               label={t('invoices.dueDate') || 'Due Date'} 
+               type="date" 
+               ref={dueDateRef} 
+               value={dueDate} 
+               min={new Date().toISOString().split('T')[0]}
+               onChange={(e) => setDueDate(e.target.value)} 
+             />
              <Input label={`${t('invoices.taxRate') || 'Tax Rate'} (%)`} type="number" ref={taxRateRef} value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))} />
              <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">{t('common.currency') || 'Currency'}</label>

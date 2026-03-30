@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -9,6 +9,8 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { clearLocalSession } from '@/lib/sessionManager';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { InvoiceDocumentPreview } from '@/components/InvoicePreviewModal';
+import type { AssembledInvoice } from '@/utils/invoiceEngine';
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -25,7 +27,7 @@ export default function SettingsPage() {
     username: '',
     brand_color: '#6366f1',
     custom_font: 'Inter',
-    invoice_template: 'modern',
+    invoice_template: 'professional_business',
     api_key: '',
     upi_id: '',
     qr_code_enabled: false
@@ -62,7 +64,7 @@ export default function SettingsPage() {
           username: data.username || '',
           brand_color: data.brand_color || '#6366f1',
           custom_font: data.custom_font || 'Inter',
-          invoice_template: data.invoice_template || 'modern',
+          invoice_template: data.invoice_template || 'professional_business',
           api_key: data.api_key || '',
           upi_id: data.upi_id || '',
           qr_code_enabled: data.qr_code_enabled || false
@@ -348,16 +350,16 @@ export default function SettingsPage() {
                     <label className="text-sm font-medium text-slate-700">{t('settings.invoiceTemplate')}</label>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
                       {[
-                        { id: 'professional_business', name: t('settings.profTemplate') },
-                        { id: 'minimal_corporate', name: t('settings.modTemplate') },
-                        { id: 'elegant_luxury', name: t('settings.eleTemplate') },
-                        { id: 'creative_agency', name: t('settings.modTemplate') },
-                        { id: 'tech_startup', name: t('settings.modTemplate') },
-                        { id: 'dark_mode', name: t('settings.modTemplate') },
-                        { id: 'colorful_freelancer', name: t('settings.modTemplate') },
-                        { id: 'scandinavian_minimal', name: t('settings.modTemplate') },
-                        { id: 'bold_modern', name: t('settings.modTemplate') },
-                        { id: 'premium_finance', name: t('settings.modTemplate') }
+                        { id: 'professional_business', name: 'Professional' },
+                        { id: 'minimal_corporate', name: 'Minimal Corporate' },
+                        { id: 'elegant_luxury', name: 'Elegant Luxury' },
+                        { id: 'creative_agency', name: 'Creative Agency' },
+                        { id: 'tech_startup', name: 'Tech Startup' },
+                        { id: 'dark_mode', name: 'Dark Mode' },
+                        { id: 'colorful_freelancer', name: 'Colorful' },
+                        { id: 'scandinavian_minimal', name: 'Scandinavian' },
+                        { id: 'bold_modern', name: 'Bold Modern' },
+                        { id: 'premium_finance', name: 'Premium Finance' }
                       ].map(tmp => (
                         <button
                           key={tmp.id}
@@ -432,145 +434,38 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   
-                  <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200/60 shadow-inner flex justify-center">
-                    <div className={`w-full max-w-[420px] rounded-lg shadow-2xl overflow-hidden text-[9px] border transition-all duration-500 scale-90 md:scale-100 relative ${
-                      profile.invoice_template === 'dark_mode' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
-                    }`}>
-                      
-                      {/* LAYOUT-SPECIFIC ACCENTS */}
-                      {profile.invoice_template === 'creative_agency' && (
-                        <div className="absolute right-0 top-0 w-32 h-32 opacity-20 -mr-16 -mt-16 rounded-full" style={{ backgroundColor: profile.brand_color }}></div>
-                      )}
-                      {profile.invoice_template === 'bold_modern' && (
-                        <div className="absolute left-0 top-0 w-3 h-32" style={{ backgroundColor: profile.brand_color }}></div>
-                      )}
-                      {profile.invoice_template === 'tech_startup' && (
-                        <div className="absolute top-0 left-0 right-0 h-1.5" style={{ backgroundColor: profile.brand_color }}></div>
-                      )}
-                      {profile.invoice_template === 'premium_finance' && (
-                        <div className="absolute top-0 left-0 bottom-0 w-px bg-slate-200" style={{ boxShadow: `2px 0 0 ${profile.brand_color}` }}></div>
-                      )}
-
-                      <div className="p-6 space-y-6 relative" style={{ fontFamily: profile.custom_font === 'Inter' ? 'Inter, sans-serif' : profile.custom_font }}>
-                        
-                        {/* HEADER SECTION */}
-                        <div className={`flex ${
-                          profile.invoice_template === 'elegant_luxury' ? 'flex-col items-center text-center' : 'justify-between items-start'
-                        } ${profile.invoice_template === 'bold_modern' ? 'pl-4' : ''}`}>
-                           <div className="space-y-2">
-                             <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center text-[8px] text-slate-400 font-bold border-2 border-dashed border-slate-200 overflow-hidden">
-                               {profile.logo_url ? <img src={profile.logo_url} className="w-full h-full object-contain" /> : 'LOGO'}
-                             </div>
-                             {profile.invoice_template === 'tech_startup' && (
-                               <p className="font-bold text-slate-900" style={{ color: profile.brand_color }}>{profile.company_name || 'Your Company'}</p>
-                             )}
-                           </div>
-                           
-                           <div className={profile.invoice_template === 'elegant_luxury' ? 'mt-4' : 'text-right'}>
-                             <h4 className={`font-black text-[14px] leading-none ${
-                               profile.invoice_template === 'dark_mode' ? 'text-white' : 
-                               profile.invoice_template === 'elegant_luxury' ? 'tracking-[0.2em] text-slate-800' : 'text-slate-900'
-                             }`} style={{ 
-                               color: (profile.invoice_template === 'bold_modern' || profile.invoice_template === 'creative_agency') ? profile.brand_color : undefined 
-                             }}>{t('sidebar.invoices').toUpperCase()}</h4>
-                             <p className="text-slate-400 font-bold mt-1 uppercase tracking-tighter">#{profile.invoice_template === 'dark_mode' ? 'DK' : 'INV'}-2026-0001</p>
-                           </div>
-                        </div>
-
-                        {/* BILLING AND INFO GRID */}
-                        <div className={`grid grid-cols-2 gap-4 pt-4 border-t ${
-                          profile.invoice_template === 'dark_mode' ? 'border-slate-700' : 'border-slate-50'
-                        }`}>
-                           <div className="space-y-1">
-                              <p className="font-bold text-slate-400 uppercase text-[7px] tracking-widest">{t('settings.preview.billTo')}</p>
-                              <p className={`font-bold text-[10px] ${profile.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-900'}`}>Global Solutions Inc.</p>
-                              <p className="text-slate-500 leading-relaxed">123 Business Avenue<br/>Innovation Park, CA 94107</p>
-                           </div>
-                           <div className="text-right space-y-1">
-                              <div className="flex justify-between pl-8">
-                                <span className="text-slate-400 font-bold uppercase text-[7px] tracking-widest">{t('settings.preview.date')}</span>
-                                <span className={profile.invoice_template === 'dark_mode' ? 'text-slate-200' : 'text-slate-700'}>Mar 15, 2026</span>
-                              </div>
-                              <div className="flex justify-between pl-8">
-                                <span className="text-slate-400 font-bold uppercase text-[7px] tracking-widest">{t('settings.preview.due')}</span>
-                                <span className="font-bold" style={{ color: profile.brand_color }}>Mar 30, 2026</span>
-                              </div>
-                           </div>
-                        </div>
-
-                        {/* ITEMS PREVIEW */}
-                        <div className="space-y-3">
-                           <div className={`flex justify-between py-2 px-3 items-center rounded-md font-bold text-[7.5px] uppercase tracking-widest ${
-                             profile.invoice_template === 'dark_mode' ? 'bg-slate-700/50 text-slate-300' : 
-                             (profile.invoice_template === 'scandinavian_minimal' ? 'bg-white border-b border-slate-100 text-slate-400' : 'bg-slate-50 text-slate-500')
-                           }`} style={{ 
-                             backgroundColor: (profile.invoice_template !== 'scandinavian_minimal' && profile.invoice_template !== 'dark_mode') ? `${profile.brand_color}10` : undefined,
-                             color: (profile.invoice_template !== 'scandinavian_minimal' && profile.invoice_template !== 'dark_mode') ? profile.brand_color : undefined
-                           }}>
-                              <span>{t('settings.preview.desc')}</span>
-                              <div className="flex gap-6">
-                                <span>{t('settings.preview.qty')}</span>
-                                <span>{t('settings.preview.total')}</span>
-                              </div>
-                           </div>
-                           
-                           <div className="space-y-2.5 px-3">
-                              <div className="flex justify-between items-center group">
-                                 <div className="space-y-0.5">
-                                    <p className={`font-bold ${profile.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-800'}`}>{t('settings.preview.sampleItem1')}</p>
-                                    <p className="text-slate-400 text-[8px]">{t('settings.preview.sampleDesc1')}</p>
-                                 </div>
-                                 <div className="flex gap-8 font-bold">
-                                    <span className="text-slate-400">01</span>
-                                    <span className={profile.invoice_template === 'dark_mode' ? 'text-slate-200' : 'text-slate-900'}>$1,200.00</span>
-                                 </div>
-                              </div>
-                              <div className={`h-px w-full ${profile.invoice_template === 'dark_mode' ? 'bg-slate-700' : 'bg-slate-50'}`}></div>
-                              <div className="flex justify-between items-center">
-                                 <div className="space-y-0.5">
-                                    <p className={`font-bold ${profile.invoice_template === 'dark_mode' ? 'text-white' : 'text-slate-800'}`}>{t('settings.preview.sampleItem2')}</p>
-                                    <p className="text-slate-400 text-[8px]">{t('settings.preview.sampleDesc2')}</p>
-                                 </div>
-                                 <div className="flex gap-8 font-bold">
-                                    <span className="text-slate-400">01</span>
-                                    <span className={profile.invoice_template === 'dark_mode' ? 'text-slate-200' : 'text-slate-900'}>$300.00</span>
-                                 </div>
-                              </div>
-                           </div>
-                        </div>
-
-                        {/* TOTALS SUMMARY */}
-                        <div className="flex justify-end pt-4">
-                           <div className="w-1/2 space-y-2">
-                              <div className="flex justify-between text-slate-400 font-bold uppercase text-[7px]">
-                                 <span>{t('settings.preview.subtotal')}</span>
-                                 <span className={profile.invoice_template === 'dark_mode' ? 'text-slate-300' : 'text-slate-700'}>$1,500.00</span>
-                              </div>
-                              <div className="flex justify-between text-slate-400 font-bold uppercase text-[7px]">
-                                 <span>{t('settings.preview.tax')}</span>
-                                 <span className={profile.invoice_template === 'dark_mode' ? 'text-slate-300' : 'text-slate-700'}>$150.00</span>
-                              </div>
-                              <div className="h-px bg-slate-100 mt-2"></div>
-                              <div className="flex justify-between items-center pt-1">
-                                 <span className="font-black text-[10px]" style={{ color: profile.invoice_template === 'dark_mode' ? '#fff' : profile.brand_color }}>{t('settings.preview.total').toUpperCase()}</span>
-                                 <span className="font-black text-[12px]" style={{ color: profile.invoice_template === 'dark_mode' ? '#fff' : profile.brand_color }}>$1,650.00</span>
-                              </div>
-                           </div>
-                        </div>
-
-                        {/* SIGNATURE SECTION */}
-                        <div className="pt-8 flex justify-between items-end">
-                           <div className="space-y-4">
-                              <div className="w-24 h-6 border-b border-slate-300 opacity-30"></div>
-                              <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">{t('settings.preview.authorized')}</p>
-                           </div>
-                           <p className="text-[7px] text-slate-400 font-medium italic">{t('settings.preview.thankYou')}</p>
-                        </div>
-
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                   {/* ─── Live Preview — uses exact same renderer as download/email ─── */}
+                   <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200/60 shadow-inner flex justify-center">
+                     {/* A4-proportioned paper (595×842 ratio = 1:1.414) */}
+                     <div className="w-full max-w-[540px] overflow-y-auto" style={{ maxHeight: '680px' }}>
+                       <InvoiceDocumentPreview
+                         invoice={((): AssembledInvoice => ({
+                           invoiceNumber: 'INV-2026-0001',
+                           date: new Date('2026-03-15'),
+                           dueDate: new Date('2026-03-30'),
+                           client: {
+                             name: 'Global Solutions Inc.',
+                             email: 'client@example.com',
+                             address: '123 Business Avenue, Innovation Park',
+                           },
+                           items: [
+                             { description: 'Professional Services', quantity: 1, price: 1200 },
+                             { description: 'License Fee', quantity: 1, price: 300 },
+                           ],
+                           taxRate: 10,
+                           total: 1650,
+                           currency: 'USD',
+                           logoUrl: profile.logo_url,
+                           companyName: profile.company_name || 'Your Company',
+                           companyPhone: (profile as any).phone,
+                           brandColor: profile.brand_color,
+                           customFont: profile.custom_font,
+                           template: profile.invoice_template,
+                           _raw: { invoice_number: 'INV-2026-0001', currency: 'USD', tax_rate: 10, total_amount: 1650 },
+                         }))()}
+                       />
+                     </div>
+                   </div></div>
 
                 <div className="pt-6 flex justify-start">
                   <Button onClick={handleSaveProfile} isLoading={loading}>
@@ -772,7 +667,7 @@ export default function SettingsPage() {
                     <div className="relative z-10">
                       <h3 className="text-indigo-900 font-bold mb-2">{t('settings.techSupport')}</h3>
                       <p className="text-sm text-indigo-700/80 mb-4">{t('settings.techSupportDesc')}</p>
-                      <a href="mailto:jawaharyuvr@gmail.com?subject=Technical Inquiry - YUVR SaaS" className="text-indigo-600 font-bold text-sm hover:underline flex items-center gap-2">
+                      <a href="mailto:jawaharyuvr@gmail.com?subject=Technical Inquiry - Yuvr's" className="text-indigo-600 font-bold text-sm hover:underline flex items-center gap-2">
                         {t('settings.contactTech')}
                       </a>
                     </div>
@@ -785,7 +680,7 @@ export default function SettingsPage() {
                     <div className="relative z-10">
                       <h3 className="text-fuchsia-900 font-bold mb-2">{t('settings.funcSupport')}</h3>
                       <p className="text-sm text-fuchsia-700/80 mb-4">{t('settings.funcSupportDesc')}</p>
-                      <a href="mailto:jawaharyuvr@gmail.com?subject=Functional Inquiry - YUVR SaaS" className="text-fuchsia-600 font-bold text-sm hover:underline flex items-center gap-2">
+                      <a href="mailto:jawaharyuvr@gmail.com?subject=Functional Inquiry - Yuvr's" className="text-fuchsia-600 font-bold text-sm hover:underline flex items-center gap-2">
                         {t('settings.contactFunc')}
                       </a>
                     </div>
