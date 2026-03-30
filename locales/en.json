@@ -11,12 +11,16 @@
     "status": "Status",
     "amount": "Amount",
     "date": "Date",
-    "back": "Back"
+    "back": "Back",
+    "viewAll": "View All",
+    "currency": "Currency",
+    "description": "Description"
   },
   "sidebar": {
     "dashboard": "Dashboard",
     "clients": "Clients",
     "invoices": "Invoices",
+    "estimates": "Estimates",
     "inventory": "Inventory",
     "expenses": "Expenses",
     "staff": "Staff",
@@ -40,7 +44,8 @@
     "status": "Status",
     "active": "Active",
     "inactive": "Inactive",
-    "addressPlaceholder": "Client's billing address..."
+    "addressPlaceholder": "Client's billing address...",
+    "deleteConfirm": "Are you sure you want to delete this client?"
   },
   "invoices": {
     "title": "Invoices",
@@ -53,6 +58,29 @@
     "emailPreFilled": "Pre-filled from the client. You can edit it.",
     "sending": "Sending...",
     "total": "Total",
+    "invoiceNumber": "Invoice Number",
+    "dueDate": "Due Date",
+    "amount": "Amount",
+    "actions": "Actions",
+    "unpaid": "Unpaid",
+    "downloadPdf": "Download PDF",
+    "sendEmail": "Send Email",
+    "noInvoiceSelected": "No invoice selected",
+    "empty": "No invoices found",
+    "emptyDesc": "Create your first invoice to get started.",
+    "summary": "Invoice Summary",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "taxRate": "Tax Rate",
+    "selectClient": "Select a client",
+    "saveInvoice": "Save Invoice",
+    "pdf": "PDF",
+    "email": "Email",
+    "lineItems": "Line Items",
+    "addItem": "Add Item",
+    "itemProduct": "Item / Product",
+    "qty": "Qty",
+    "price": "Price",
     "status": {
       "paid": "Paid",
       "pending": "Pending",
@@ -72,7 +100,9 @@
       "authorized": "Authorized Signature",
       "certified": "Yuvr-SaaS Certified Invoicing",
       "thankYou": "Thank you for your business. For any inquiries, please contact"
-    }
+    },
+    "deleteConfirm": "Are you sure you want to delete this invoice?",
+    "noInvoices": "No invoices found"
   },
   "dashboard": {
     "welcome": "Welcome back",
@@ -81,7 +111,12 @@
     "activeClients": "Active Clients",
     "pendingInvoices": "Pending Invoices",
     "paidInvoices": "Paid Invoices",
-    "totalExpenses": "Total Expenses"
+    "totalExpenses": "Total Expenses",
+    "recentInvoices": "Recent Invoices",
+    "topClients": "Top Clients",
+    "manageClients": "Manage Clients",
+    "noClients": "No clients yet",
+    "addClientBtn": "Add Client"
   },
   "settings": {
     "title": "Settings",
@@ -168,7 +203,9 @@
       "sampleDesc1": "Development and Consultation",
       "sampleItem2": "License Fee",
       "sampleDesc2": "Annual SaaS Subscription"
-    }
+    },
+    "realTimeSync": "Real-time Sync",
+    "supportActive": "Support Active"
   },
   "inventory": {
     "title": "Inventory Management",
@@ -189,7 +226,15 @@
     "basePrice": "Base Price",
     "initialStock": "Initial Stock",
     "empty": "Your inventory is empty",
-    "emptyDesc": "Start adding products to track stock levels."
+    "emptyDesc": "Start adding products to track stock levels.",
+    "delete_confirm": "Are you sure you want to delete this product?",
+    "no_sku": "No SKU",
+    "units": {
+      "pcs": "Pieces",
+      "kg": "Kilograms",
+      "mtr": "Meters",
+      "box": "Boxes"
+    }
   },
   "expenses": {
     "title": "Expense Tracking",
@@ -207,7 +252,19 @@
     "noExpenses": "No expenses logged",
     "noExpensesDesc": "Start tracking your business overheads.",
     "newExpense": "Log New Expense",
-    "saveExpense": "Save Expense"
+    "saveExpense": "Save Expense",
+    "cats": {
+      "rent": "Office Rent",
+      "salaries": "Salaries",
+      "utilities": "Utilities",
+      "inventory": "Inventory",
+      "marketing": "Marketing",
+      "software": "Software",
+      "others": "Others"
+    },
+    "deleteConfirm": "Are you sure you want to delete this expense?",
+    "noDescription": "No description provided",
+    "descPlaceholder": "Enter description..."
   },
   "exchange": {
     "title": "Exchange Rate History",
@@ -327,7 +384,8 @@
       "login_btn": "Continue to Login",
       "errorExpired": "Your recovery code has expired. Please request a new one.",
       "errorToken": "Token expired. Please request a new one."
-    }
+    },
+    "loginRequired": "Login Required"
   },
   "staff": {
     "title": "Staff Management",
@@ -390,5 +448,17 @@
     "submit_btn": "Submit Message",
     "placeholder_msg": "How can we help you?",
     "alert_fill": "Please fill in all fields."
+  },
+  "analytics": {
+    "title": "Business Analytics",
+    "subtitle": "Track your agency's financial performance",
+    "outstanding": "Total Outstanding",
+    "avgPaymentTime": "Avg Payment Time",
+    "revenueOverview": "Revenue Overview",
+    "period": "Period",
+    "revenue": "Revenue",
+    "paymentStatus": "Payment Status Distribution",
+    "pendingPayment": "Pending Payment",
+    "exportCsv": "Export CSV"
   }
 }

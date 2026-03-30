@@ -195,6 +195,12 @@ export default function InvoiceForm() {
       }
 
       alert('Invoice saved successfully! Exchange rate for this invoice is locked.');
+      
+      // Reset form context for next entry
+      setClientId('');
+      setDueDate('');
+      setItems([{ id: crypto.randomUUID(), description: '', quantity: 1, price: 0 }]);
+      fetchNextInvoiceNumber();
     } catch (error: any) {
       alert(error.message);
     } finally {

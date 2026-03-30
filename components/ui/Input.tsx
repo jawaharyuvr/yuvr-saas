@@ -9,6 +9,12 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, icon, ...props }, ref) => {
+    // Prevent React NaN warnings if parsed number binds fall strictly empty
+    const safeProps = { ...props };
+    if (typeof safeProps.value === 'number' && Number.isNaN(safeProps.value)) {
+      safeProps.value = '';
+    }
+
     return (
       <div className="w-full space-y-1.5">
         {label && (
@@ -30,7 +36,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               icon ? 'pl-10' : 'px-3',
               className
             )}
-            {...props}
+            {...safeProps}
           />
         </div>
         {error && (
