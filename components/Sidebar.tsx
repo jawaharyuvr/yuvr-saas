@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/utils/format';
 import { supabase } from '@/lib/supabase';
-import { trackSession, clearLocalSession, removeSessionFromDb } from '@/lib/sessionManager';
+import { trackSession, performSignOut } from '@/lib/sessionManager';
 
 import { useTranslation } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -59,20 +59,7 @@ export function Sidebar() {
   ];
 
   const handleSignOut = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await removeSessionFromDb(user.id);
-      }
-      
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      clearLocalSession();
-      router.replace('/login');
-    } catch (error: any) {
-      alert(error.message);
-    }
+    await performSignOut();
   };
 
   return (

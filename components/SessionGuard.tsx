@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { trackSession, clearLocalSession, removeSessionFromDb, clearAllUserSessions } from '@/lib/sessionManager';
+import { trackSession, performSignOut, clearAllUserSessions } from '@/lib/sessionManager';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { ShieldAlert } from 'lucide-react';
@@ -52,10 +52,7 @@ export function SessionGuard({ children }: { children: React.ReactNode }) {
     setIsProcessing(true);
     try {
       await clearAllUserSessions(currentUserId);
-      await supabase.auth.signOut();
-      clearLocalSession();
-      setShowConflictModal(false);
-      router.push('/login');
+      await performSignOut();
     } catch (error) {
       console.error('Error in handleLogoutAll:', error);
     } finally {
@@ -64,19 +61,8 @@ export function SessionGuard({ children }: { children: React.ReactNode }) {
   };
 
   const handleManualLogout = async () => {
-    if (!currentUserId) return;
     setIsProcessing(true);
-    try {
-      await removeSessionFromDb(currentUserId);
-      await supabase.auth.signOut();
-      clearLocalSession();
-      setShowConflictModal(false);
-      router.push('/login');
-    } catch (error) {
-      console.error('Error in handleManualLogout:', error);
-    } finally {
-      setIsProcessing(false);
-    }
+    await performSignOut();
   };
 
   if (showConflictModal) {
