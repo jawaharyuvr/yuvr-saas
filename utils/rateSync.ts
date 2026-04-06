@@ -77,7 +77,7 @@ export async function getExchangeHistory(base = 'USD') {
     const endDate = today.toISOString().split('T')[0];
     
     // Frankfurter API for history
-    const response = await fetch(`https://api.frankfurter.app/${startDate}..${endDate}?from=${base}`);
+    const response = await fetch(`https://api.frankfurter.dev/v1/${startDate}..${endDate}?from=${base}`);
     if (!response.ok) throw new Error('Failed to fetch historical rates');
     
     const data = await response.json();

@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { DynamicBackground } from '@/components/ui/DynamicBackground';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import Image from 'next/image';
 
 export default function Home() {
   const { t } = useTranslation();
@@ -116,8 +117,7 @@ export default function Home() {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="relative z-10 max-w-7xl mx-auto px-6 py-20 sm:py-32 text-center"
-      >
+        className="relative z-10 max-w-7xl mx-auto px-6 py-20 sm:py-32 text-center">
         <motion.h2 className="text-5xl sm:text-7xl font-extrabold tracking-tight leading-tight [perspective:1000px] flex flex-col items-center">
           <div className="flex justify-center gap-[0.25em] flex-wrap">
             {titleText1.map((word, i) => (

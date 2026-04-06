@@ -24,13 +24,20 @@ import { supabase } from '@/lib/supabase';
 import { CURRENCIES, convertAmount } from '@/utils/constants';
 import { generateInvoicePDF } from '@/utils/pdf';
 import { buildInvoiceData, fetchUserBranding, type UserBranding, type AssembledInvoice } from '@/utils/invoiceEngine';
-import { InvoicePreviewModal } from '@/components/InvoicePreviewModal';
-import { Modal } from '@/components/ui/Modal';
 import { formatDate } from '@/utils/format';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { TiltCard } from '@/components/ui/TiltCard';
 import { motion } from 'framer-motion';
+import dynamic from 'next/dynamic';
+import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
+
+// Dynamic imports for heavy components
+const InvoicePreviewModal = dynamic(() => import('@/components/InvoicePreviewModal').then(mod => mod.InvoicePreviewModal), {
+  loading: () => <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[100] flex items-center justify-center animate-pulse" />
+});
+
+const Modal = dynamic(() => import('@/components/ui/Modal').then(mod => mod.Modal));
 
 import { getLiveRate, syncExchangeRates } from '@/utils/rateSync';
 
@@ -301,6 +308,10 @@ export default function DashboardPage() {
   ];
 
   const brand = userBranding?.brand_color || '#6366f1';
+
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <PageTransition>
