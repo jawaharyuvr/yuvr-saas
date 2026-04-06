@@ -95,3 +95,33 @@ export const removeSessionFromDb = async (userId: string) => {
 export const clearLocalSession = () => {
   localStorage.removeItem(SESSION_TRACKING_KEY);
 };
+
+/**
+ * Robust sign-out that handles both database session cleanup 
+ * and browser auth state removal. Uses hard redirect for production reliability.
+ */
+export const performSignOut = async (redirectUrl = '/login') => {
+  try {
+    // 1. Get current user if available to clean up their DB session
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      // 2. We trigger DB cleanup but don't AWAIT it if it's taking too long 
+      // or failing. User experience is prioritize over DB consistency here.
+      removeSessionFromDb(user.id).catch(e => console.warn('DB cleanup skip:', e));
+    }
+
+    // 3. Perform the actual Supabase signout
+    await supabase.auth.signOut();
+    
+  } catch (error) {
+    console.warn('Sign out process encountered an issue, forcing redirect:', error);
+  } finally {
+    // 4. Clear local tracking immediately
+    clearLocalSession();
+    
+    // 5. Enforce hard refresh/redirect to ensure all React contexts (Auth/Language) 
+    // are purged and the user is guaranteed to land on the login screen.
+    window.location.href = redirectUrl;
+  }
+};

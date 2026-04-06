@@ -3,7 +3,7 @@
 import { useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
-import { clearLocalSession } from '@/lib/sessionManager';
+import { performSignOut } from '@/lib/sessionManager';
 
 const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
 
@@ -17,13 +17,10 @@ export function InactivityTimeout() {
     if (!pathname.startsWith('/dashboard')) return;
 
     console.log('User inactive for 10 minutes. Logging out.');
-    await supabase.auth.signOut();
-    clearLocalSession();
-    
     const params = new URLSearchParams({
       message: 'Session expired due to inactivity. Please log in again.'
     });
-    router.push(`/login?${params.toString()}`);
+    await performSignOut(`/login?${params.toString()}`);
   }, [pathname, router, supabase]);
 
   useEffect(() => {

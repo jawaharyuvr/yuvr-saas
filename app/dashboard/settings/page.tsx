@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { User, Bell, Shield, Palette, Save, Upload, Image as ImageIcon, LogOut, CreditCard, LifeBuoy } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { clearLocalSession } from '@/lib/sessionManager';
+import { performSignOut } from '@/lib/sessionManager';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { InvoiceDocumentPreview } from '@/components/InvoicePreviewModal';
 import type { AssembledInvoice } from '@/utils/invoiceEngine';
@@ -170,9 +170,7 @@ export default function SettingsPage() {
       alert(t('settings.successPassword') || 'Password updated successfully! You will be signed out from all devices for security.');
       
       // 3. Global Logout
-      await supabase.auth.signOut({ scope: 'global' });
-      clearLocalSession();
-      router.replace('/login');
+      await performSignOut();
     } catch (error: any) {
       alert(error.message);
     } finally {
