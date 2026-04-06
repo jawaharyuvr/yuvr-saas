@@ -11,16 +11,16 @@ Date: 2026-03-28
     - [x] Email integration (Resend).
     - [x] Status tracking (Paid/Unpaid).
 - [x] **Estimates**: Create and send quotes/estimates.
+- [x] **Mobile App/PWA**: Cross-platform mobile accessibility.
 
 ## 🛠️ In-Progress (Current Implementation)
 - [/] **Payment Automation**: UPI QR code generation on invoice PDFs.
 - [/] **Multi-User Management**: Staff/Team member roles and permissions.
 - [/] **Inventory Management**: Stock tracking, low stock alerts, barcode labels.
 - [/] **Expense Tracking**: Categorized expense logging, profit/loss reports.
-- [/] **Offline Mode**: Local storage sync for offline work. (PWA)
+- [x] **Offline Mode**: Local storage sync for offline work (PWA Foundation).
 
 ## 📅 Planned / Missing Modules (For Future Development)
 - [ ] **GST Compliance**: Tax slabs, GSTR exportable reports.
 - [ ] **Barcode Scanning**: Scan items directly into invoices (via camera).
 - [ ] **Thermal Print Support**: Formats for standard thermal receipts.
-- [ ] **Mobile App/PWA**: Cross-platform mobile accessibility.

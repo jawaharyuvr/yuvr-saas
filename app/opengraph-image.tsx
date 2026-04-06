@@ -67,14 +67,23 @@ export default async function Image() {
               gap: '20px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', color: '#6366f1', fontSize: '20px', fontWeight: '600' }}>
-              ✓ Smart Templates
+            <div style={{ display: 'flex', alignItems: 'center', color: '#6366f1', fontSize: '24px', fontWeight: 'bold' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px' }}>
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Smart Templates
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', color: '#d946ef', fontSize: '20px', fontWeight: '600' }}>
-              ✓ Global Tracking
+            <div style={{ display: 'flex', alignItems: 'center', color: '#d946ef', fontSize: '24px', fontWeight: 'bold' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px' }}>
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Global Tracking
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', color: '#06b6d4', fontSize: '20px', fontWeight: '600' }}>
-              ✓ Instant PDF
+            <div style={{ display: 'flex', alignItems: 'center', color: '#06b6d4', fontSize: '24px', fontWeight: 'bold' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px' }}>
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Instant PDF
             </div>
           </div>
         </div>
